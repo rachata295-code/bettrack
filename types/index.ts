@@ -7,7 +7,7 @@ export const CURRENCIES: readonly Currency[] = ['USDT', 'THB', 'USD'];
 export type RoundResult = 'win' | 'lose';
 
 export interface Round {
-  id: string; // crypto.randomUUID()
+  id: string; // newId() (RFC 4122 v4)
   result: RoundResult;
   bet: Money;
   multiplier: string; // > 1

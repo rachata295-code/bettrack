@@ -6,6 +6,7 @@ import { D, parseMoneyInput } from '@/lib/calculations/money';
 import { validateBetInput, type BetInputError } from '@/lib/calculations/round';
 import { computeTimeline, currentBalance } from '@/lib/calculations/timeline';
 import { mergeSessions } from '@/lib/io/backup';
+import { newId } from '@/lib/id';
 import { BETS_KEY, safeStorage } from './storage';
 
 export const DUPLICATE_WINDOW_MS = 300;
@@ -38,7 +39,7 @@ interface BetState {
 function makeSession(name: string, input: SessionInput = {}): Session {
   const now = new Date().toISOString();
   return {
-    id: crypto.randomUUID(),
+    id: newId(),
     name,
     currency: input.currency ?? 'USDT',
     initialBalance: input.initialBalance ?? '16.99',
@@ -116,7 +117,7 @@ export const useBetStore = create<BetState>()(
           const v = validateBetInput({ balance, bet, multiplier });
           if (!v.ok) return { ok: false, errors: v.errors };
           const round: Round = {
-            id: crypto.randomUUID(),
+            id: newId(),
             result,
             bet: v.bet,
             multiplier: v.multiplier,
