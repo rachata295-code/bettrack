@@ -15,9 +15,11 @@ export function useKeyboardShortcuts(handlers: Partial<Record<ShortcutAction, ()
       const el = e.target instanceof HTMLElement ? e.target : null;
       const action = resolveShortcut({
         key: e.key,
+        code: e.code,
         ctrlKey: e.ctrlKey,
         metaKey: e.metaKey,
         altKey: e.altKey,
+        shiftKey: e.shiftKey,
         targetTag: el?.tagName ?? 'BODY',
         targetEditable: el?.isContentEditable ?? false,
       });
