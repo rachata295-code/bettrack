@@ -15,7 +15,6 @@ export interface Round {
   note?: string;
 }
 
-// `guard` (stop-loss / take-profit) is added in M2.
 export interface Session {
   id: string;
   name: string;
@@ -25,6 +24,7 @@ export interface Session {
   defaultMultiplier: string;
   rounds: Round[]; // array order = chronological order
   tags: string[];
+  guard?: SessionGuardLimits; // stop-loss / take-profit per session
   createdAt: string;
   updatedAt: string;
 }
@@ -32,4 +32,18 @@ export interface Session {
 // M1 settings only; the rest arrive in later milestones.
 export interface Settings {
   precision: number; // 0-8, default 2
+}
+
+export type LimitValue = { kind: 'amount' | 'percent'; value: string };
+export interface SessionGuardLimits {
+  stopLoss?: LimitValue;
+  takeProfit?: LimitValue;
+}
+
+export interface GuardSettings {
+  sizing: { mode: 'fixed' | 'percent'; percent: string; minBet: string };
+  riskBands: { low: string; high: string }; // % of balance
+  lossStreak: { enabled: boolean; n: number; mode: 'soft' | 'hard'; cooldownMin: number };
+  dailyLossLimit?: Money; // all sessions of one currency, Bangkok day
+  chasingAlert: boolean;
 }

@@ -1,6 +1,7 @@
 import { TZDate } from '@date-fns/tz';
 import { format, subDays, subMonths, subWeeks } from 'date-fns';
 import type { Currency, Money, Session } from '@/types';
+import { chasingFlags } from './chasing';
 import { D } from './money';
 import { computeTimeline, type TimelineRow } from './timeline';
 
@@ -42,12 +43,12 @@ export interface RowFilter {
 
 /**
  * Flattens sessions of ONE currency into time-ordered rows (currencies are never mixed).
- * `flags` supplies the per-round chasing marker; defaults to all-false until the guard wires it in.
+ * `flags` supplies the per-round chasing marker; defaults to the guard's chasing rule.
  */
 export function collectRows(
   sessions: readonly Session[],
   f: RowFilter,
-  flags: (s: Session) => boolean[] = s => s.rounds.map(() => false),
+  flags: (s: Session) => boolean[] = s => chasingFlags(s.rounds),
 ): AnalyticsRow[] {
   const out: AnalyticsRow[] = [];
   for (const s of sessions) {
