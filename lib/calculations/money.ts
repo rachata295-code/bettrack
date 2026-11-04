@@ -1,8 +1,9 @@
 import Decimal from 'decimal.js';
 import type { Currency, Money } from '@/types';
 
+// toExp* disabled so toString() never emits "1e-7"; stored money must stay plain decimal.
 // High precision so chained multiplications stay exact; rounding happens only on display.
-Decimal.set({ precision: 40 });
+Decimal.set({ precision: 40, toExpNeg: -1e9, toExpPos: 1e9 });
 
 /** Wrap a pre-validated decimal string. Do not pass raw user input. */
 export function D(value: string): Decimal {

@@ -7,6 +7,16 @@ describe('parseMoneyInput', () => {
   it.each(['', '4,00', '1e3', '-4', 'abc', '4.', '.5', 'NaN', 'Infinity'])('rejects %j', (raw) =>
     expect(parseMoneyInput(raw).ok).toBe(false));
 });
+describe('parseMoneyInput plain-decimal output', () => {
+  it.each(['0.0000001', '1' + '0'.repeat(21)])('never uses exponent notation for %j', (raw) => {
+    const r = parseMoneyInput(raw);
+    expect(r).toEqual({ ok: true, value: raw });
+    if (r.ok) {
+      expect(r.value).toMatch(/^\d+(\.\d+)?$/);
+      expect(parseMoneyInput(r.value).ok).toBe(true);
+    }
+  });
+});
 describe('isPositive', () => {
   it('is true only for > 0', () => {
     expect(isPositive('0.01')).toBe(true);
