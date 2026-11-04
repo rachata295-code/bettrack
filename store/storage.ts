@@ -33,6 +33,10 @@ function onStorageError(err: unknown): void {
   }
 }
 
+// Keys whose latest write failed: this tab holds newer state than storage, so it must not rehydrate them.
+const unsavedKeys = new Set<string>();
+export const hasUnsavedWrite = (key: string): boolean => unsavedKeys.has(key);
+
 export const getLoadIssues = (): LoadIssue[] => [...loadIssues.values()];
 export const getLoadIssue = (): LoadIssue | null => loadIssues.values().next().value ?? null;
 export const clearLoadIssue = (key?: string): void => {
@@ -108,10 +112,15 @@ export const safeStorage: StateStorage = {
     // Never clobber data we failed to load: the user may still be able to recover it.
     if (loadIssues.has(name)) return;
     const store = ls();
-    if (!store) return;
+    if (!store) {
+      if (typeof window !== 'undefined') unsavedKeys.add(name);
+      return;
+    }
     try {
       store.setItem(name, value);
+      unsavedKeys.delete(name);
     } catch (err) {
+      unsavedKeys.add(name);
       onStorageError(err);
     }
   },

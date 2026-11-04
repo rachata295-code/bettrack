@@ -2,13 +2,17 @@
 
 // Must stay the first import: registers the storage error toast before any store module hydrates.
 import './storage-error-toast';
+import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useHydrated } from '@/hooks/use-hydrated';
 import { getLoadIssues } from '@/store/storage';
+import { startStorageSync } from '@/store/sync';
 import { RecoveryScreen } from './recovery-screen';
 
 export function HydrationGate({ children }: { children: React.ReactNode }) {
   const hydrated = useHydrated();
+  // Keep this tab in step with others so a stale tab can't overwrite their rounds.
+  useEffect(() => startStorageSync(), []);
 
   if (!hydrated) {
     return (
