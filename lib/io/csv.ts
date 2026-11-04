@@ -26,5 +26,6 @@ export function historyToCsv(session: Session, timeline: readonly TimelineRow[])
         .map(field)
         .join(','),
     );
-  return [header, ...rows].join('\r\n') + '\r\n';
+  // UTF-8 BOM: without it Excel decodes the file as ANSI and Thai notes turn into mojibake.
+  return '\uFEFF' + [header, ...rows].join('\r\n') + '\r\n';
 }

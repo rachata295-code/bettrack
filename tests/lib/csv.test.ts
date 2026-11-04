@@ -26,4 +26,10 @@ describe('historyToCsv', () => {
     expect(lines[1]).toBe('1,Win,4,2.03,4.12,21.11,2026-11-04T10:00:00.000Z,');
     expect(lines[2]!.startsWith('2,Lose,4,2.03,-4,17.11')).toBe(true);
   });
+  it('starts with a UTF-8 BOM so Excel reads Thai notes correctly', () => {
+    const s = sessionWithNote('ชนะ');
+    const csv = historyToCsv(s, computeTimeline(s.initialBalance, s.rounds));
+    expect(csv.charCodeAt(0)).toBe(0xfeff);
+    expect(csv).toContain(',ชนะ');
+  });
 });
