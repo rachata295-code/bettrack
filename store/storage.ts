@@ -1,4 +1,5 @@
 import type { StateStorage } from 'zustand/middleware';
+import { DEFAULT_GUARD, parseGuardSettings } from '@/lib/calculations/guard';
 import { SessionSchema } from '@/lib/io/backup';
 
 export const BETS_KEY = 'bettrack:v1:bets';
@@ -79,9 +80,13 @@ function validate(name: string, raw: string): string | null {
   if (name === BETS_KEY) {
     return SessionSchema.array().safeParse(state.sessions).success ? raw : null;
   }
-  if (name === SETTINGS_KEY && !isValidPrecision(state.precision)) {
-    // A bad precision is harmless: fall back to the default rather than blocking the app.
-    return JSON.stringify({ ...(parsed as object), state: { ...state, precision: 2 } });
+  if (name === SETTINGS_KEY) {
+    // Bad precision or guard is harmless: fall back to defaults rather than blocking the app.
+    // A missing guard (v1 data) is left for the store's migrate to fill in.
+    const precision = isValidPrecision(state.precision) ? state.precision : 2;
+    const guard = state.guard === undefined ? undefined : (parseGuardSettings(state.guard) ?? DEFAULT_GUARD);
+    const next = { ...state, precision, ...(guard !== undefined ? { guard } : {}) };
+    return JSON.stringify({ ...(parsed as object), state: next });
   }
   return raw;
 }

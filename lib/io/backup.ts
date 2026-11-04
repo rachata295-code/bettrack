@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CURRENCIES } from '@/types';
 import type { Session, Settings } from '@/types';
+import { parseGuardSettings, validateLimitValue } from '@/lib/calculations/guard';
 import { D, isPositive, parseMoneyInput } from '@/lib/calculations/money';
 import { computeTimeline, currentBalance } from '@/lib/calculations/timeline';
 
@@ -24,6 +25,21 @@ export const RoundSchema = z.object({
   note: z.string().optional(),
 });
 
+const limitValue = z
+  .object({ kind: z.enum(['amount', 'percent']), value: z.string() })
+  .refine(v => validateLimitValue(v) !== null, 'invalid limit')
+  .transform(v => validateLimitValue(v)!);
+const sessionGuard = z.object({ stopLoss: limitValue.optional(), takeProfit: limitValue.optional() });
+// Transform (not just refine) so import stores the normalised guard, never raw untrusted strings.
+const guardSettings = z.unknown().transform((v, ctx) => {
+  const g = parseGuardSettings(v);
+  if (!g) {
+    ctx.addIssue({ code: 'custom', message: 'invalid guard settings' });
+    return z.NEVER;
+  }
+  return g;
+});
+
 // Default zod behaviour strips unknown keys, so export-only fields like currentBalance are ignored on import.
 export const SessionSchema = z.object({
   id: z.string().min(1),
@@ -34,6 +50,7 @@ export const SessionSchema = z.object({
   defaultMultiplier: multiplier,
   rounds: z.array(RoundSchema),
   tags: z.array(z.string()),
+  guard: sessionGuard.optional(),
   createdAt: isoDate,
   updatedAt: isoDate,
 });
@@ -43,7 +60,7 @@ export const BackupSchema = z.object({
   version: z.literal(BACKUP_VERSION),
   exportedAt: isoDate,
   sessions: z.array(SessionSchema),
-  settings: z.object({ precision: z.number().int().min(0).max(8) }).optional(),
+  settings: z.object({ precision: z.number().int().min(0).max(8), guard: guardSettings.optional() }).optional(),
 });
 
 export interface Backup {

@@ -1,4 +1,5 @@
-import { CURRENCIES, type Currency, type Money } from '@/types';
+import { CURRENCIES, type Currency, type LimitValue, type Money, type SessionGuardLimits } from '@/types';
+import { validateLimitValue } from '@/lib/calculations/guard';
 import { D, parseMoneyInput } from '@/lib/calculations/money';
 
 export const MAX_NAME = 60;
@@ -12,6 +13,11 @@ export interface SessionFormInput {
   defaultMultiplier: string;
   /** Comma-separated. */
   tags: string;
+  /** Empty value = limit off. */
+  stopLossValue: string;
+  stopLossKind: LimitValue['kind'];
+  takeProfitValue: string;
+  takeProfitKind: LimitValue['kind'];
 }
 
 export interface SessionFormValue {
@@ -21,6 +27,8 @@ export interface SessionFormValue {
   defaultBet: Money;
   defaultMultiplier: Money;
   tags: string[];
+  /** null = no limits (also removes existing ones on edit). */
+  guard: SessionGuardLimits | null;
 }
 
 export type SessionFormField = keyof SessionFormInput;
@@ -50,9 +58,22 @@ export function validateSessionForm(input: SessionFormInput): SessionFormResult 
   const tags = [...new Set(input.tags.split(',').map(t => t.trim()).filter(Boolean))];
   if (tags.length > MAX_TAGS) errors.tags = `At most ${MAX_TAGS} tags`;
 
+  const guard: SessionGuardLimits = {};
+  const limit = (key: 'stopLoss' | 'takeProfit', raw: string, kind: LimitValue['kind'], field: SessionFormField) => {
+    const text = raw.trim();
+    if (!text) return;
+    const v = validateLimitValue({ kind, value: text });
+    if (v) guard[key] = v;
+    else errors[field] = kind === 'percent' ? 'Enter a percent above 0 and up to 100' : 'Enter an amount greater than 0';
+  };
+  limit('stopLoss', input.stopLossValue, input.stopLossKind, 'stopLossValue');
+  limit('takeProfit', input.takeProfitValue, input.takeProfitKind, 'takeProfitValue');
+
   if (Object.keys(errors).length > 0 || !bal.ok || !bet.ok || !mult.ok) return { ok: false, errors };
   return {
     ok: true,
-    value: { name, currency: input.currency, initialBalance: bal.value, defaultBet: bet.value, defaultMultiplier: mult.value, tags },
+    value: { name, currency: input.currency, initialBalance: bal.value, defaultBet: bet.value, defaultMultiplier: mult.value, tags,
+      guard: guard.stopLoss || guard.takeProfit ? guard : null,
+    },
   };
 }

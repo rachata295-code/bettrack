@@ -29,10 +29,13 @@ export interface Session {
   updatedAt: string;
 }
 
-// M1 settings only; the rest arrive in later milestones.
+// Backup shape of persisted settings; guard is optional so M1 backups still parse.
 export interface Settings {
   precision: number; // 0-8, default 2
+  guard?: GuardSettings;
 }
+
+export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export type LimitValue = { kind: 'amount' | 'percent'; value: string };
 export interface SessionGuardLimits {

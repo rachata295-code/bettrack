@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js';
-import type { Currency, GuardSettings, LimitValue, Money, Round, Session, SessionGuardLimits } from '@/types';
-import { D } from './money';
+import type { Currency, DeepPartial, GuardSettings, LimitValue, Money, Round, Session, SessionGuardLimits } from '@/types';
+import { D, parseMoneyInput } from './money';
 import { collectRows, dateKey } from './periods';
 
 export { chasingFlags, wouldChase } from './chasing';
@@ -90,4 +90,102 @@ export function formatCountdown(ms: number): string {
   const mm = Math.floor(total / 60);
   const ss = total % 60;
   return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+}
+
+export type GuardErrors = Record<string, string>;
+export type GuardValidation = { ok: true; value: GuardSettings } | { ok: false; errors: GuardErrors };
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** Plain decimal string (via parseMoneyInput) -> normalised string, else null. Non-strings are rejected. */
+function decimal(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const p = parseMoneyInput(v);
+  return p.ok ? p.value : null;
+}
+
+const inRangeInt = (v: unknown, min: number, max: number): v is number =>
+  typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+
+/** Shared by stop-loss / take-profit in the store, the session form and the backup schema. */
+export function validateLimitValue(raw: unknown): LimitValue | null {
+  if (!isRecord(raw) || (raw.kind !== 'amount' && raw.kind !== 'percent')) return null;
+  const value = decimal(raw.value);
+  if (value === null || !D(value).gt(0)) return null;
+  if (raw.kind === 'percent' && D(value).gt(100)) return null;
+  return { kind: raw.kind, value };
+}
+
+/**
+ * Pure validation of a settings patch against the current guard. Nested objects merge key by key;
+ * `dailyLossLimit: undefined` clears it. Nothing is applied unless the merged result is fully valid.
+ */
+export function validateGuardPatch(current: GuardSettings, patch: DeepPartial<GuardSettings>): GuardValidation {
+  const p = (isRecord(patch) ? patch : {}) as Record<string, Record<string, unknown> | unknown>;
+  const sub = (k: string): Record<string, unknown> => (isRecord(p[k]) ? (p[k] as Record<string, unknown>) : {});
+  const sizing: Record<string, unknown> = { ...current.sizing, ...sub('sizing') };
+  const bands: Record<string, unknown> = { ...current.riskBands, ...sub('riskBands') };
+  const streak: Record<string, unknown> = { ...current.lossStreak, ...sub('lossStreak') };
+  const chasing = 'chasingAlert' in p ? p.chasingAlert : current.chasingAlert;
+  const dailyRaw = 'dailyLossLimit' in p ? p.dailyLossLimit : current.dailyLossLimit;
+
+  const errors: GuardErrors = {};
+  if (sizing.mode !== 'fixed' && sizing.mode !== 'percent') errors['sizing.mode'] = 'Choose a sizing mode';
+  const percent = decimal(sizing.percent);
+  if (percent === null || !D(percent).gt(0) || D(percent).gt(100)) errors['sizing.percent'] = 'Enter a percent above 0 and up to 100';
+  const minBet = decimal(sizing.minBet);
+  if (minBet === null || !D(minBet).gt(0)) errors['sizing.minBet'] = 'Enter a minimum bet greater than 0';
+
+  const low = decimal(bands.low);
+  const high = decimal(bands.high);
+  const bandOk = (v: string | null) => v !== null && D(v).gte(0) && D(v).lte(100);
+  if (!bandOk(low)) errors['riskBands.low'] = 'Enter a percent from 0 to 100';
+  if (!bandOk(high)) errors['riskBands.high'] = 'Enter a percent from 0 to 100';
+  if (bandOk(low) && bandOk(high) && !D(low!).lt(high!)) errors['riskBands.high'] = 'High must be greater than low';
+
+  if (typeof streak.enabled !== 'boolean') errors['lossStreak.enabled'] = 'Invalid value';
+  if (!inRangeInt(streak.n, 2, 20)) errors['lossStreak.n'] = 'Enter a whole number from 2 to 20';
+  if (streak.mode !== 'soft' && streak.mode !== 'hard') errors['lossStreak.mode'] = 'Choose a mode';
+  if (!inRangeInt(streak.cooldownMin, 1, 120)) errors['lossStreak.cooldownMin'] = 'Enter whole minutes from 1 to 120';
+  if (typeof chasing !== 'boolean') errors.chasingAlert = 'Invalid value';
+
+  let daily: string | undefined;
+  if (dailyRaw !== undefined) {
+    const d = decimal(dailyRaw);
+    if (d === null || !D(d).gt(0)) errors.dailyLossLimit = 'Enter an amount greater than 0, or leave empty';
+    else daily = d;
+  }
+
+  if (Object.keys(errors).length > 0) return { ok: false, errors };
+  const value: GuardSettings = {
+    sizing: { mode: sizing.mode as 'fixed' | 'percent', percent: percent!, minBet: minBet! },
+    riskBands: { low: low!, high: high! },
+    lossStreak: {
+      enabled: streak.enabled as boolean,
+      n: streak.n as number,
+      mode: streak.mode as 'soft' | 'hard',
+      cooldownMin: streak.cooldownMin as number,
+    },
+    chasingAlert: chasing as boolean,
+    ...(daily !== undefined ? { dailyLossLimit: daily } : {}),
+  };
+  return { ok: true, value };
+}
+
+/** Complete, valid guard settings from untrusted input, or null (every section must be present). */
+export function parseGuardSettings(raw: unknown): GuardSettings | null {
+  if (!isRecord(raw) || !isRecord(raw.sizing) || !isRecord(raw.riskBands) || !isRecord(raw.lossStreak)) return null;
+  const r = validateGuardPatch(DEFAULT_GUARD, raw as DeepPartial<GuardSettings>);
+  // Reject sections that only passed because defaults filled gaps.
+  const complete =
+    ['mode', 'percent', 'minBet'].every(k => k in (raw.sizing as object)) &&
+    ['low', 'high'].every(k => k in (raw.riskBands as object)) &&
+    ['enabled', 'n', 'mode', 'cooldownMin'].every(k => k in (raw.lossStreak as object)) &&
+    'chasingAlert' in raw;
+  return r.ok && complete ? r.value : null;
+}
+
+/** Lenient read: anything unusable becomes the defaults (guard problems must never block the app). */
+export function sanitizeGuard(raw: unknown): GuardSettings {
+  return parseGuardSettings(raw) ?? DEFAULT_GUARD;
 }

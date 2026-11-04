@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Download, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { GuardSettingsForm } from '@/components/guard/guard-settings-form';
 import { ImportDialog } from '@/components/sessions/import-dialog';
 import {
   AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -25,6 +26,7 @@ const CONFIRM_WORD = 'RESET';
 export default function SettingsPage() {
   const precision = useSettingsStore(s => s.precision);
   const setPrecision = useSettingsStore(s => s.setPrecision);
+  const guard = useSettingsStore(s => s.guard);
   const [importing, setImporting] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [typed, setTyped] = useState('');
@@ -33,7 +35,7 @@ export default function SettingsPage() {
   const exportBackup = () => {
     try {
       const { sessions } = useBetStore.getState();
-      downloadText(exportFilename('backup', 'json'), JSON.stringify(createBackup(sessions, { precision }), null, 2), 'application/json');
+      downloadText(exportFilename('backup', 'json'), JSON.stringify(createBackup(sessions, { precision, guard }), null, 2), 'application/json');
     } catch {
       toast.error('Export failed');
     }
@@ -43,6 +45,7 @@ export default function SettingsPage() {
     if (!canReset) return;
     useBetStore.getState().resetAll();
     setPrecision(DEFAULT_PRECISION);
+    useSettingsStore.getState().resetGuard();
     setResetOpen(false);
     toast('All data reset');
   };
@@ -66,6 +69,12 @@ export default function SettingsPage() {
           </p>
           <p className="text-xs text-muted-foreground">Only affects how numbers are shown. Stored values keep full precision.</p>
         </div>
+      </section>
+
+      <section className="max-w-md space-y-3" aria-labelledby="set-guard">
+        <h2 id="set-guard" className="text-lg font-medium">Bankroll Guard</h2>
+        {/* key re-mounts the form when settings change elsewhere (e.g. a backup import). */}
+        <GuardSettingsForm key={JSON.stringify(guard)} />
       </section>
 
       <section className="max-w-md space-y-3" aria-labelledby="set-data">
