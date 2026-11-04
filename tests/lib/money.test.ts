@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { D, formatMoney, formatPercent, isPositive, parseMoneyInput } from '@/lib/calculations/money';
+import { D, formatMoney, formatPercent, isPositive, negate, parseMoneyInput } from '@/lib/calculations/money';
 
 describe('parseMoneyInput', () => {
   it.each([[' 4 ', '4'], ['16.99', '16.99'], ['2.030', '2.03'], ['0.1', '0.1']])('accepts %j', (raw, v) =>
@@ -41,3 +41,7 @@ describe('formatPercent', () => {
   it('honours precision', () => expect(formatPercent('50', 0)).toBe('50%'));
 });
 it('avoids float error', () => expect(D('0.1').plus(D('0.2')).toString()).toBe('0.3'));
+
+describe('negate', () => {
+  it.each([['4', '-4'], ['-4.12', '4.12'], ['0', '0']])('%s -> %s', (v, out) => expect(negate(v)).toBe(out));
+});

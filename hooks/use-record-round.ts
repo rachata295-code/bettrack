@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { RoundResult } from '@/types';
-import { D, formatMoney } from '@/lib/calculations/money';
+import { formatMoney, negate } from '@/lib/calculations/money';
 import { BET_ERROR_MESSAGES, previewRound } from '@/lib/calculations/round';
 import { computeTimeline, currentBalance } from '@/lib/calculations/timeline';
 import { useBetStore } from '@/store/bet-store';
@@ -48,8 +48,9 @@ export function useRecordRound(
           `WIN ${formatMoney(p.win.profit, { precision, signed: true })} → ${formatMoney(p.win.newBalance, { precision })}`,
         );
       } else {
-        toast.error(
-          `LOSE ${formatMoney(D(p.lose.loss).neg().toString(), { precision, signed: true })} → ${formatMoney(p.lose.newBalance, { precision })}`,
+        // Plain toast: a loss is a normal outcome being recorded, not an app error.
+        toast(
+          `LOSE ${formatMoney(negate(p.lose.loss), { precision, signed: true })} → ${formatMoney(p.lose.newBalance, { precision })}`,
         );
       }
     },
@@ -57,17 +58,36 @@ export function useRecordRound(
   );
 
   const undo = useCallback(() => {
-    const st = useBetStore.getState();
-    const session = st.sessions.find(s => s.id === st.activeSessionId);
-    // restoreRound takes the 0-based position, which for the last round is length - 1.
-    const index = (session?.rounds.length ?? 0) - 1;
-    const removed = st.undoLast();
-    if (!removed) {
-      toast('Nothing to undo');
+    const res = useBetStore.getState().undoLast();
+    if (!res.ok) {
+      // Duplicate (double-tap on Undo) is intentionally silent, like record.
+      if (res.reason === 'empty') toast('Nothing to undo');
       return;
     }
-    toast(`Undid ${removed.result.toUpperCase()} round`, {
-      action: { label: 'Redo', onClick: () => useBetStore.getState().restoreRound(removed, index) },
+    const { sessionId, round, index } = res;
+    // Remember the round now last so redo can tell a delete+record since the undo (same length, new tail).
+    const tailId = useBetStore.getState().sessions.find(s => s.id === sessionId)?.rounds.at(-1)?.id;
+    toast(`Undid ${round.result.toUpperCase()} round`, {
+      action: {
+        label: 'Redo',
+        onClick: () => {
+          const st = useBetStore.getState();
+          const session = st.sessions.find(s => s.id === sessionId);
+          if (session && session.rounds.at(-1)?.id !== tailId) {
+            toast("Can't redo — the session changed since the undo");
+            return;
+          }
+          const r = st.restoreRound(sessionId, round, index);
+          if (!r.ok) {
+            const why = {
+              no_session: 'that session was deleted',
+              exists: 'the round is already back',
+              stale: 'the session changed since the undo',
+            }[r.reason];
+            toast(`Can't redo — ${why}`);
+          }
+        },
+      },
     });
   }, []);
 

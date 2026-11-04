@@ -19,6 +19,11 @@ export function parseMoneyInput(raw: string): { ok: true; value: Money } | { ok:
   return { ok: true, value: new Decimal(s).toString() };
 }
 
+/** Sign flip for display (e.g. a loss shown as a negative P&L) so callers avoid Decimal math. */
+export function negate(value: Money): Money {
+  return D(value).neg().toString();
+}
+
 export function isPositive(value: Money): boolean {
   return D(value).gt(0);
 }

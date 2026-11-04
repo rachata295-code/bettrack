@@ -105,3 +105,37 @@ it('a throwing storage error handler does not escape', () => {
   });
   expect(() => useBetStore.getState().createSession()).not.toThrow();
 });
+
+it('persists drafts and rehydrates them (I1)', async () => {
+  const id = useBetStore.getState().activeSessionId;
+  useBetStore.getState().setDraft(id, { bet: '8' });
+  const snapshot = localStorage.getItem(KEY)!;
+  useBetStore.getState().resetAll();
+  localStorage.setItem(KEY, snapshot);
+  await useBetStore.persist.rehydrate();
+  expect(useBetStore.getState().drafts[id]).toEqual({ bet: '8', multiplier: '2.03' });
+});
+
+it('invalid or orphan drafts are dropped without a loadIssue (I1)', async () => {
+  const id = useBetStore.getState().activeSessionId;
+  const parsed = JSON.parse(localStorage.getItem(KEY)!);
+  parsed.state.drafts = { [id]: { bet: 8, multiplier: '2' }, ghost: { bet: '1', multiplier: '2' } };
+  localStorage.setItem(KEY, JSON.stringify(parsed));
+  await useBetStore.persist.rehydrate();
+  expect(getLoadIssue()).toBeNull();
+  expect(useBetStore.getState().drafts).toEqual({});
+  parsed.state.drafts = 'garbage';
+  localStorage.setItem(KEY, JSON.stringify(parsed));
+  await useBetStore.persist.rehydrate();
+  expect(getLoadIssue()).toBeNull();
+  expect(useBetStore.getState().drafts).toEqual({});
+});
+
+it('legacy data without drafts still loads (I1)', async () => {
+  const parsed = JSON.parse(localStorage.getItem(KEY)!);
+  delete parsed.state.drafts;
+  localStorage.setItem(KEY, JSON.stringify(parsed));
+  await useBetStore.persist.rehydrate();
+  expect(getLoadIssue()).toBeNull();
+  expect(useBetStore.getState().drafts).toEqual({});
+});

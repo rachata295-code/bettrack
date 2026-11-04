@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useBetStore } from '@/store/bet-store';
+import { getDraft, useBetStore } from '@/store/bet-store';
 import { clearLoadIssue } from '@/store/storage';
 import { computeTimeline, currentBalance } from '@/lib/calculations/timeline';
 
@@ -59,19 +59,80 @@ describe('bet store', () => {
 
   it('undo removes last and restore puts it back', () => {
     const st = useBetStore.getState();
+    const sid = st.activeSessionId;
     st.recordRound('win', '4', '2.03');
     vi.advanceTimersByTime(400);
     st.recordRound('lose', '4', '2.03');
     const undone = useBetStore.getState().undoLast();
-    expect(undone?.result).toBe('lose');
+    if (!undone.ok) throw new Error('setup');
+    expect(undone).toMatchObject({ sessionId: sid, index: 1 });
+    expect(undone.round.result).toBe('lose');
     expect(balanceOfActive()).toBe('21.11');
-    useBetStore.getState().restoreRound(undone!, 1);
+    expect(useBetStore.getState().restoreRound(sid, undone.round, undone.index)).toEqual({ ok: true });
     expect(balanceOfActive()).toBe('17.11');
-    expect(useBetStore.getState().undoLast()).not.toBeNull();
+    vi.advanceTimersByTime(400);
+    expect(useBetStore.getState().undoLast().ok).toBe(true);
   });
 
-  it('undoLast returns null on empty session', () => {
-    expect(useBetStore.getState().undoLast()).toBeNull();
+  it('undoLast reports empty on empty session', () => {
+    expect(useBetStore.getState().undoLast()).toEqual({ ok: false, reason: 'empty' });
+  });
+
+  it('undo double-tap within 300ms removes only one round (I4)', () => {
+    const st = useBetStore.getState();
+    st.recordRound('win', '4', '2.03');
+    vi.advanceTimersByTime(400);
+    st.recordRound('win', '4', '2.03');
+    expect(useBetStore.getState().undoLast().ok).toBe(true);
+    vi.advanceTimersByTime(100);
+    expect(useBetStore.getState().undoLast()).toEqual({ ok: false, reason: 'duplicate' });
+    expect(activeRounds()).toHaveLength(1);
+    vi.advanceTimersByTime(300);
+    expect(useBetStore.getState().undoLast().ok).toBe(true);
+    expect(activeRounds()).toHaveLength(0);
+  });
+
+  it('a clock that moved backwards is not treated as a duplicate', () => {
+    const st = useBetStore.getState();
+    st.recordRound('win', '4', '2.03');
+    vi.setSystemTime(new Date('2026-11-04T09:00:00Z'));
+    expect(st.recordRound('win', '4', '2.03').ok).toBe(true);
+    expect(useBetStore.getState().undoLast().ok).toBe(true);
+    vi.setSystemTime(new Date('2026-11-04T08:00:00Z'));
+    expect(useBetStore.getState().undoLast().ok).toBe(true);
+  });
+
+  it('restoreRound targets the captured session, not the active one (I7)', () => {
+    const st = useBetStore.getState();
+    const a = st.activeSessionId;
+    st.recordRound('win', '4', '2.03');
+    const undone = useBetStore.getState().undoLast();
+    if (!undone.ok) throw new Error('setup');
+    const b = st.createSession({ name: 'B' });
+    expect(useBetStore.getState().restoreRound(a, undone.round, undone.index)).toEqual({ ok: true });
+    const s = useBetStore.getState();
+    expect(s.activeSessionId).toBe(b);
+    expect(s.sessions.find(x => x.id === a)!.rounds.map(r => r.id)).toEqual([undone.round.id]);
+    expect(s.sessions.find(x => x.id === b)!.rounds).toHaveLength(0);
+  });
+
+  it('restoreRound refuses a missing session, an existing id, or a stale position (I7)', () => {
+    const st = useBetStore.getState();
+    const a = st.activeSessionId;
+    st.recordRound('win', '4', '2.03');
+    const undone = useBetStore.getState().undoLast();
+    if (!undone.ok) throw new Error('setup');
+    expect(useBetStore.getState().restoreRound('gone', undone.round, undone.index)).toEqual({ ok: false, reason: 'no_session' });
+    expect(useBetStore.getState().restoreRound(a, undone.round, undone.index)).toEqual({ ok: true });
+    expect(useBetStore.getState().restoreRound(a, undone.round, undone.index)).toEqual({ ok: false, reason: 'exists' });
+    vi.advanceTimersByTime(400);
+    const again = useBetStore.getState().undoLast();
+    if (!again.ok) throw new Error('setup');
+    vi.advanceTimersByTime(400);
+    useBetStore.getState().recordRound('lose', '4', '2.03');
+    expect(useBetStore.getState().restoreRound(a, again.round, again.index)).toEqual({ ok: false, reason: 'stale' });
+    expect(activeRounds()).toHaveLength(1);
+    expect(activeRounds()[0]!.result).toBe('lose');
   });
 
   it('editRound validates format only and trims note', () => {
@@ -143,4 +204,57 @@ describe('bet store', () => {
     expect(s.sessions.map(x => x.id)).toEqual(['other']);
     expect(s.activeSessionId).toBe('other');
   });
+
+  describe('drafts (I1)', () => {
+    const draftOf = (id: string) => useBetStore.getState().drafts[id];
+
+    it('falls back to session defaults until edited', () => {
+      const st = useBetStore.getState();
+      expect(getDraft(useBetStore.getState(), st.activeSessionId)).toEqual({ bet: '4', multiplier: '2.03' });
+      expect(draftOf(st.activeSessionId)).toBeUndefined();
+    });
+
+    it('stores raw strings per session and keeps the other field', () => {
+      const st = useBetStore.getState();
+      const a = st.activeSessionId;
+      st.setDraft(a, { bet: '8' });
+      expect(getDraft(useBetStore.getState(), a)).toEqual({ bet: '8', multiplier: '2.03' });
+      st.setDraft(a, { multiplier: '1.9 ' });
+      expect(draftOf(a)).toEqual({ bet: '8', multiplier: '1.9 ' });
+      const b = st.createSession({ name: 'B', defaultBet: '2' });
+      expect(getDraft(useBetStore.getState(), b)).toEqual({ bet: '2', multiplier: '2.03' });
+      expect(getDraft(useBetStore.getState(), a).bet).toBe('8');
+    });
+
+    it('ignores unknown sessions and is not reset by changing defaults', () => {
+      const st = useBetStore.getState();
+      st.setDraft('nope', { bet: '9' });
+      expect(useBetStore.getState().drafts).toEqual({});
+      st.setDraft(st.activeSessionId, { bet: '8' });
+      st.updateSession(st.activeSessionId, { defaultBet: '5' });
+      expect(getDraft(useBetStore.getState(), st.activeSessionId).bet).toBe('8');
+    });
+
+    it('deleting a session drops its draft; resetAll clears all', () => {
+      const st = useBetStore.getState();
+      const a = st.activeSessionId;
+      const b = st.createSession({ name: 'B' });
+      st.setDraft(a, { bet: '8' });
+      st.setDraft(b, { bet: '3' });
+      st.deleteSession(b);
+      expect(Object.keys(useBetStore.getState().drafts)).toEqual([a]);
+      useBetStore.getState().resetAll();
+      expect(useBetStore.getState().drafts).toEqual({});
+    });
+
+    it('replace import drops drafts of sessions that no longer exist', () => {
+      const st = useBetStore.getState();
+      const a = st.activeSessionId;
+      st.setDraft(a, { bet: '8' });
+      const other = { ...active(), id: 'other', name: 'Other' };
+      st.importSessions([other], 'replace');
+      expect(useBetStore.getState().drafts).toEqual({});
+    });
+  });
 });
+

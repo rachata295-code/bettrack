@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BET_ERROR_MESSAGES, previewRound, validateBetInput, type BetInputError } from '@/lib/calculations/round';
 import { SHORTCUT_HELP } from '@/lib/shortcuts';
+import { useDraft } from '@/hooks/use-draft';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { useRecordRound } from '@/hooks/use-record-round';
 import { useTimeline } from '@/hooks/use-timeline';
@@ -15,15 +16,15 @@ import { useSettingsStore } from '@/store/settings-store';
 
 export default function CalculatorPage() {
   const { session } = useTimeline();
-  // Keyed by session id so local bet/multiplier reset to the new session's defaults on switch.
+  // Keyed by session id so transient UI state (help dialog, record lock) resets on switch.
   return <Calculator key={session.id} />;
 }
 
 function Calculator() {
   const { session, balance } = useTimeline();
   const precision = useSettingsStore(s => s.precision);
-  const [bet, setBet] = useState(session.defaultBet);
-  const [multiplier, setMultiplier] = useState(session.defaultMultiplier);
+  // Persisted per session so edits survive navigation/refresh and the Dashboard uses the same values.
+  const { bet, multiplier, setBet, setMultiplier } = useDraft(session.id);
   const [helpOpen, setHelpOpen] = useState(false);
   const betRef = useRef<HTMLInputElement>(null);
   const multRef = useRef<HTMLInputElement>(null);
@@ -47,8 +48,11 @@ function Calculator() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 p-4 lg:p-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Calculator</h1>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold">Calculator</h1>
+          <p className="truncate text-sm text-muted-foreground">{session.name}</p>
+        </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={undo}>
             Undo
@@ -58,21 +62,26 @@ function Calculator() {
           </Button>
         </div>
       </div>
-      <BetForm
-        bet={bet}
-        multiplier={multiplier}
-        onBetChange={setBet}
-        onMultiplierChange={setMultiplier}
-        betError={msgs(['invalid_bet', 'insufficient_balance', 'no_balance'])}
-        multiplierError={msgs(['invalid_multiplier'])}
-        balance={balance}
-        currency={session.currency}
-        precision={precision}
-        betRef={betRef}
-        multiplierRef={multRef}
-      />
-      <RoundPreview preview={preview} precision={precision} />
-      <ResultButtons onWin={() => canRecord && record('win')} onLose={() => canRecord && record('lose')} disabled={!v.ok || locked} />
+      {/* Buttons sit right under the inputs on phones so recording never needs a scroll; desktop keeps preview first. */}
+      <div className="flex flex-col gap-5">
+        <BetForm
+          bet={bet}
+          multiplier={multiplier}
+          onBetChange={setBet}
+          onMultiplierChange={setMultiplier}
+          betError={msgs(['invalid_bet', 'insufficient_balance', 'no_balance'])}
+          multiplierError={msgs(['invalid_multiplier'])}
+          balance={balance}
+          currency={session.currency}
+          precision={precision}
+          betRef={betRef}
+          multiplierRef={multRef}
+        />
+        <div className="lg:order-last">
+          <ResultButtons onWin={() => canRecord && record('win')} onLose={() => canRecord && record('lose')} disabled={!v.ok || locked} />
+        </div>
+        <RoundPreview preview={preview} precision={precision} />
+      </div>
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent>
           <DialogHeader>
