@@ -45,7 +45,7 @@ export function BalanceCard({
         <Item label="Lowest" value={money(stats.lowest)} />
       </dl>
       {hasInsufficient && (
-        <div role="alert" className="flex items-start gap-2 rounded-lg border border-loss/40 bg-loss/10 p-3 text-sm text-loss">
+        <div role="status" className="flex items-start gap-2 rounded-lg border border-loss/40 bg-loss/10 p-3 text-sm text-loss">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
           <p>
             Some rounds exceed the balance available at that time —{' '}
