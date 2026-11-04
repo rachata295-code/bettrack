@@ -11,7 +11,9 @@ const decimalString = z.string().refine(s => s === s.trim() && parseMoneyInput(s
 const nonNegative = decimalString;
 const positive = decimalString.refine(isPositive, 'must be > 0');
 const multiplier = decimalString.refine(s => D(s).gt(1), 'must be > 1');
-const isoDate = z.string().refine(s => !Number.isNaN(Date.parse(s)), 'invalid date');
+// Strict ISO 8601 with offset: lenient strings like "1" would parse but break period bucketing.
+const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/;
+const isoDate = z.string().regex(ISO_RE, 'invalid date').refine(s => !Number.isNaN(Date.parse(s)), 'invalid date');
 
 export const RoundSchema = z.object({
   id: z.string().min(1),

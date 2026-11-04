@@ -51,4 +51,12 @@ describe('mergeSessions', () => {
   it('replace swaps everything', () => {
     expect(mergeSessions([a], [c], 'replace').sessions).toEqual([c]);
   });
+
+  it('rejects lenient dates in backup', () => {
+    const bad = (v: string) => JSON.stringify({ ...createBackup([session]), exportedAt: v });
+    for (const v of ['1', '2026-11-04', 'Nov 4 2026', '2026-13-45T10:00:00Z', '2026-11-04T10:00:00']) {
+      expect(parseBackup(bad(v)).ok).toBe(false);
+    }
+    expect(parseBackup(bad('2026-11-04T10:00:00+07:00')).ok).toBe(true);
+  });
 });

@@ -1,23 +1,17 @@
 import type { TimelineRow } from '@/lib/calculations/timeline';
 import { D } from '@/lib/calculations/money';
+import { dateKey } from '@/lib/calculations/periods';
 
 export interface HistoryQuery {
   search: string;
   result: 'all' | 'win' | 'lose';
-  from?: string; // YYYY-MM-DD, local date
-  to?: string; // YYYY-MM-DD, local date
+  from?: string; // YYYY-MM-DD, Asia/Bangkok date
+  to?: string; // YYYY-MM-DD, Asia/Bangkok date
   sort: 'time' | 'result' | 'bet' | 'pnl';
   dir: 'asc' | 'desc';
 }
 
 export const DEFAULT_HISTORY_QUERY: HistoryQuery = { search: '', result: 'all', sort: 'time', dir: 'desc' };
-
-// Local calendar date (browser timezone); M2 switches this to Asia/Bangkok via periods.ts.
-function localDate(iso: string): string {
-  const d = new Date(iso);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
 
 function compare(a: TimelineRow, b: TimelineRow, sort: HistoryQuery['sort']): number {
   switch (sort) {
@@ -43,7 +37,7 @@ export function queryHistory(rows: readonly TimelineRow[], q: HistoryQuery): Tim
       if (!inNote && !isRound) return false;
     }
     if (q.from || q.to) {
-      const d = localDate(r.round.createdAt);
+      const d = dateKey(r.round.createdAt);
       if (q.from && d < q.from) return false;
       if (q.to && d > q.to) return false;
     }
