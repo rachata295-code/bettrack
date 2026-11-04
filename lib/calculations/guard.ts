@@ -1,7 +1,8 @@
 import Decimal from 'decimal.js';
 import type { Currency, DeepPartial, GuardSettings, LimitValue, Money, Round, Session, SessionGuardLimits } from '@/types';
-import { D, parseMoneyInput } from './money';
+import { D, formatMoney, parseMoneyInput } from './money';
 import { collectRows, dateKey } from './periods';
+import { computeTimeline, currentBalance } from './timeline';
 
 export { chasingFlags, wouldChase } from './chasing';
 
@@ -73,6 +74,65 @@ export function limitHits(input: {
     if (active(l) && D(todayPnl).neg().gte(l)) hits.push('daily_loss');
   }
   return hits;
+}
+
+export interface LimitHitDetail {
+  hit: LimitHit;
+  label: string;
+  /** Signed P&L the limit is measured against (negative for losses). */
+  current: Money;
+  /** Resolved limit amount (always positive). */
+  limit: Money;
+}
+
+const LIMIT_LABELS: Record<LimitHit, string> = {
+  stop_loss: 'Stop-loss reached',
+  take_profit: 'Take-profit reached',
+  daily_loss: 'Daily loss limit reached',
+};
+
+/** Same rules as limitHits, plus the numbers so the confirm dialog can show why it is asking. */
+export function limitHitDetails(input: Parameters<typeof limitHits>[0]): LimitHitDetail[] {
+  const sessionPnl = D(input.balance).minus(input.initialBalance).toString();
+  return limitHits(input).map(hit => {
+    if (hit === 'daily_loss') return { hit, label: LIMIT_LABELS[hit], current: D(input.todayPnl).toString(), limit: D(input.dailyLossLimit!).toString() };
+    const lv = hit === 'stop_loss' ? input.limits!.stopLoss! : input.limits!.takeProfit!;
+    return { hit, label: LIMIT_LABELS[hit], current: sessionPnl, limit: resolveLimit(lv, input.initialBalance) };
+  });
+}
+
+/** e.g. "Stop-loss reached: −10.00 / 10.00 USDT" (sign always shown, never colour-only). */
+export function formatLimitHit(d: LimitHitDetail, precision: number, currency: Currency): string {
+  return `${d.label}: ${formatMoney(d.current, { precision, signed: true })} / ${formatMoney(d.limit, { precision, currency })}`;
+}
+
+/**
+ * Limits for one session evaluated from raw state, so callers can check at click time
+ * (fresh store snapshot) rather than trusting values captured at the last render.
+ */
+export function evaluateSessionLimits(input: {
+  session: Session;
+  sessions: readonly Session[];
+  dailyLossLimit?: Money;
+  now: Date;
+  tz?: string;
+}): LimitHitDetail[] {
+  const { session, sessions, dailyLossLimit, now, tz } = input;
+  const balance = currentBalance(session.initialBalance, computeTimeline(session.initialBalance, session.rounds));
+  return limitHitDetails({
+    initialBalance: session.initialBalance,
+    balance,
+    limits: session.guard,
+    // Daily limit spans every session of this currency only (currencies never mix).
+    todayPnl: todayPnl(sessions, session.currency, now, tz),
+    dailyLossLimit,
+  });
+}
+
+/** Is the typed bet the same amount as `value`? Invalid input counts as different (so a suggestion still shows). */
+export function isSameAmount(value: Money, input: string): boolean {
+  const p = parseMoneyInput(input);
+  return p.ok && D(p.value).eq(value);
 }
 
 /** Net P&L of today's (Bangkok) rounds across all sessions of one currency. */
