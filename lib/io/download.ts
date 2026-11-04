@@ -10,7 +10,7 @@ export function downloadText(filename: string, text: string, mime: string): void
     a.click();
     a.remove();
   } finally {
-    // Revoke so the blob is not leaked for the lifetime of the page.
-    URL.revokeObjectURL(url);
+    // Revoke late: iOS Safari may cancel the download if the URL dies right after click().
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 }
