@@ -16,7 +16,7 @@ export function HydrationGate({ children }: { children: React.ReactNode }) {
 
   if (!hydrated) {
     return (
-      <div className="flex flex-col gap-4 p-6" aria-busy="true">
+      <div className="flex flex-col gap-4 p-6" aria-busy="true" role="status" aria-label="Loading">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-32 w-full" />

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   title: "BetTrack",
   description: "Track your own betting balance and results.",
 };
+
+// viewport-fit=cover lets env(safe-area-inset-bottom) report the notch inset so content clears the bottom nav.
+export const viewport: Viewport = { viewportFit: "cover" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
