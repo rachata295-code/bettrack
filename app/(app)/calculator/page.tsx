@@ -1,17 +1,20 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { BetForm } from '@/components/calculator/bet-form';
+import { MultiplierChips } from '@/components/calculator/multiplier-chips';
 import { ResultButtons } from '@/components/calculator/result-buttons';
 import { RoundPreview } from '@/components/calculator/round-preview';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BET_ERROR_MESSAGES, previewRound, validateBetInput, type BetInputError } from '@/lib/calculations/round';
+import { recentMultipliers } from '@/lib/calculations/multipliers';
 import { SHORTCUT_HELP } from '@/lib/shortcuts';
 import { useDraft } from '@/hooks/use-draft';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { useRecordRound } from '@/hooks/use-record-round';
 import { useTimeline } from '@/hooks/use-timeline';
+import { useBetStore } from '@/store/bet-store';
 import { useSettingsStore } from '@/store/settings-store';
 
 export default function CalculatorPage() {
@@ -25,6 +28,11 @@ function Calculator() {
   const precision = useSettingsStore(s => s.precision);
   // Persisted per session so edits survive navigation/refresh and the Dashboard uses the same values.
   const { bet, multiplier, setBet, setMultiplier } = useDraft(session.id);
+  const sessions = useBetStore(s => s.sessions);
+  const chipOptions = useMemo(
+    () => recentMultipliers(sessions, { defaultMultiplier: session.defaultMultiplier }),
+    [sessions, session.defaultMultiplier],
+  );
   const [helpOpen, setHelpOpen] = useState(false);
   const betRef = useRef<HTMLInputElement>(null);
   const multRef = useRef<HTMLInputElement>(null);
@@ -77,6 +85,8 @@ function Calculator() {
           betRef={betRef}
           multiplierRef={multRef}
         />
+        {/* Picks write to the draft only; session default and past rounds stay untouched. */}
+        <MultiplierChips value={multiplier} defaultMultiplier={session.defaultMultiplier} options={chipOptions} onPick={setMultiplier} />
         <div className="lg:order-last">
           <ResultButtons onWin={() => canRecord && record('win')} onLose={() => canRecord && record('lose')} disabled={!v.ok || locked} />
         </div>
