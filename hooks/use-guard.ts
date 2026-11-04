@@ -20,6 +20,7 @@ export interface GuardView {
   streakAlert: boolean;
   /** Ticks every second while > 0; 0 when no break is running. */
   cooldownRemainingMs: number;
+  /** Not rendered yet: kept for Task 9's GuardStatusCard (limit status at a glance). */
   hits: LimitHit[];
   limitDetails: LimitHitDetail[];
 }
@@ -27,6 +28,15 @@ export interface GuardView {
 /** Ticking "now" only while a cooldown is running, so idle pages do not re-render every second. */
 function useCooldownRemaining(cooldownUntil: number | null): number {
   const [now, setNow] = useState(() => Date.now());
+  // Re-sync `now` in the same store update that starts/changes a break (this tab or a synced one),
+  // so a long-open page never renders a countdown from its stale mount time.
+  useEffect(
+    () =>
+      useBetStore.subscribe((s, prev) => {
+        if (s.cooldownUntil !== prev.cooldownUntil) setNow(Date.now());
+      }),
+    [],
+  );
   useEffect(() => {
     if (cooldownUntil === null) return;
     const tick = () => {
@@ -35,14 +45,9 @@ function useCooldownRemaining(cooldownUntil: number | null): number {
       // Stop once expired: the final tick renders 0, which unlocks the buttons without a refresh.
       if (t >= cooldownUntil) clearInterval(id);
     };
-    // First tick async so a just-started break shows its real remaining time immediately.
     // tick only ever runs asynchronously, after `id` below is initialised.
-    const first = setTimeout(tick, 0);
     const id = setInterval(tick, 1000);
-    return () => {
-      clearTimeout(first);
-      clearInterval(id);
-    };
+    return () => clearInterval(id);
   }, [cooldownUntil]);
   return cooldownUntil === null ? 0 : Math.max(0, cooldownUntil - now);
 }

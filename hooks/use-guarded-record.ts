@@ -13,7 +13,10 @@ export const CHASING_MESSAGE = 'Bet raised right after a loss — consider stick
 export interface PendingRecord {
   result: RoundResult;
   hits: LimitHitDetail[];
+  /** Snapshot at click time: confirming records exactly what was clicked, even if the draft changed. */
   sessionId: string;
+  bet: string;
+  multiplier: string;
 }
 
 /**
@@ -35,14 +38,17 @@ export function useGuardedRecord(
   const inner = useRecordRound(bet, multiplier);
   const innerRecord = inner.record;
   const [pending, setPending] = useState<PendingRecord | null>(null);
+  // A session switch (here or in another tab) drops the request: it was asked about another session.
+  const activeSessionId = useBetStore(s => s.activeSessionId);
+  if (pending && pending.sessionId !== activeSessionId) setPending(null);
 
   // Saves the round and runs the post-record guard checks. Always reads a fresh store snapshot.
   const commit = useCallback(
-    (result: RoundResult) => {
+    (result: RoundResult, input?: { bet: string; multiplier: string }) => {
       const { guard } = useSettingsStore.getState();
       const st = useBetStore.getState();
       const before = st.sessions.find(s => s.id === st.activeSessionId)?.rounds ?? [];
-      const saved = innerRecord(result);
+      const saved = innerRecord(result, input);
       if (!saved) return;
       if (guard.chasingAlert && wouldChase(before, saved.bet)) toast.warning(CHASING_MESSAGE);
       const { lossStreak } = guard;
@@ -66,12 +72,12 @@ export function useGuardedRecord(
       const { guard } = useSettingsStore.getState();
       const hits = evaluateSessionLimits({ session, sessions: st.sessions, dailyLossLimit: guard.dailyLossLimit, now: new Date() });
       if (hits.length > 0) {
-        setPending({ result, hits, sessionId: session.id });
+        setPending({ result, hits, sessionId: session.id, bet, multiplier });
         return;
       }
       commit(result);
     },
-    [pending, commit],
+    [pending, commit, bet, multiplier],
   );
 
   const confirm = useCallback(() => {
@@ -82,7 +88,7 @@ export function useGuardedRecord(
     const { cooldownUntil, activeSessionId } = useBetStore.getState();
     if (cooldownUntil !== null && Date.now() < cooldownUntil) return;
     if (activeSessionId !== pending.sessionId) return;
-    commit(pending.result);
+    commit(pending.result, { bet: pending.bet, multiplier: pending.multiplier });
   }, [pending, commit]);
 
   const cancel = useCallback(() => setPending(null), []);

@@ -14,7 +14,11 @@ const LOCK_MS = 300;
 export function useRecordRound(
   bet: string,
   multiplier: string,
-): { record: (result: RoundResult) => Round | null; undo: () => void; locked: boolean } {
+): {
+  record: (result: RoundResult, input?: { bet: string; multiplier: string }) => Round | null;
+  undo: () => void;
+  locked: boolean;
+} {
   const [locked, setLocked] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -25,7 +29,8 @@ export function useRecordRound(
   );
 
   const record = useCallback(
-    (result: RoundResult): Round | null => {
+    // `input` lets a delayed (confirmed) record use the values captured at click time.
+    (result: RoundResult, input?: { bet: string; multiplier: string }): Round | null => {
       const { precision } = useSettingsStore.getState();
       const st = useBetStore.getState();
       const session = st.sessions.find(s => s.id === st.activeSessionId);
@@ -33,7 +38,7 @@ export function useRecordRound(
       const before = session
         ? currentBalance(session.initialBalance, computeTimeline(session.initialBalance, session.rounds))
         : '0';
-      const res = st.recordRound(result, bet, multiplier);
+      const res = st.recordRound(result, input?.bet ?? bet, input?.multiplier ?? multiplier);
       if (!res.ok) {
         // Duplicate (double-click / held key) is intentionally silent.
         if (res.errors[0] === 'duplicate') return null;

@@ -19,6 +19,8 @@ export function GuardNotices({
 }) {
   // Keyed by streak length: dismissing hides it only until the streak grows (the next loss).
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  // Streak fell below the dismissed length (a WIN or undo): forget it, so a new streak shows again.
+  if (dismissedAt !== null && lossStreak < dismissedAt) setDismissedAt(null);
   if (cooldownRemainingMs > 0) return <CooldownPanel remainingMs={cooldownRemainingMs} />;
   if (streakAlert && dismissedAt !== lossStreak) {
     return <StreakBanner streak={lossStreak} onDismiss={() => setDismissedAt(lossStreak)} />;
