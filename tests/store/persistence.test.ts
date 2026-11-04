@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useBetStore } from '@/store/bet-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { clearLoadIssue, getLoadIssue, getLoadIssues, setStorageErrorHandler } from '@/store/storage';
@@ -138,4 +138,56 @@ it('legacy data without drafts still loads (I1)', async () => {
   await useBetStore.persist.rehydrate();
   expect(getLoadIssue()).toBeNull();
   expect(useBetStore.getState().drafts).toEqual({});
+});
+
+describe('blocked / failing storage (I3)', () => {
+  it('reports an error when localStorage access itself throws (e.g. Safari "Block All Cookies")', async () => {
+    const handler = vi.fn();
+    setStorageErrorHandler(handler);
+    vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    expect(() => useBetStore.getState().createSession()).not.toThrow();
+    expect(handler).toHaveBeenCalled();
+    handler.mockClear();
+    await useBetStore.persist.rehydrate();
+    expect(handler).toHaveBeenCalled();
+    // Nothing could be read, so there is nothing to protect: no recovery screen.
+    expect(getLoadIssue()).toBeNull();
+  });
+
+  it('a getItem throw records a read_error issue so later writes cannot clobber real data', async () => {
+    const handler = vi.fn();
+    setStorageErrorHandler(handler);
+    const before = localStorage.getItem(KEY);
+    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('io', 'UnknownError');
+    });
+    await useBetStore.persist.rehydrate();
+    spy.mockRestore();
+    expect(handler).toHaveBeenCalled();
+    expect(getLoadIssue()).toMatchObject({ key: KEY, kind: 'read_error' });
+    useBetStore.getState().createSession();
+    expect(localStorage.getItem(KEY)).toBe(before);
+  });
+
+  it('corrupt data is reported as kind corrupt', async () => {
+    localStorage.setItem(KEY, '{broken');
+    await useBetStore.persist.rehydrate();
+    expect(getLoadIssue()).toMatchObject({ key: KEY, kind: 'corrupt' });
+  });
+
+  it('errors raised before a handler is registered are delivered on registration', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    setStorageErrorHandler(null);
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('full', 'QuotaExceededError');
+    });
+    useBetStore.getState().createSession();
+    const handler = vi.fn();
+    setStorageErrorHandler(handler);
+    expect(handler).toHaveBeenCalledTimes(1);
+    setStorageErrorHandler(vi.fn());
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
 });

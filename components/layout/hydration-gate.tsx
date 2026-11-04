@@ -1,18 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
-import { toast } from 'sonner';
+// Must stay the first import: registers the storage error toast before any store module hydrates.
+import './storage-error-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useHydrated } from '@/hooks/use-hydrated';
-import { getLoadIssues, setStorageErrorHandler } from '@/store/storage';
+import { getLoadIssues } from '@/store/storage';
 import { RecoveryScreen } from './recovery-screen';
 
 export function HydrationGate({ children }: { children: React.ReactNode }) {
   const hydrated = useHydrated();
-
-  useEffect(() => {
-    setStorageErrorHandler(() => toast.error('Could not save — storage is full or blocked. Export a backup now.'));
-  }, []);
 
   if (!hydrated) {
     return (

@@ -7,14 +7,25 @@ export const SETTINGS_KEY = 'bettrack:v1:settings';
 export interface LoadIssue {
   key: string;
   raw: string;
+  // corrupt: stored text failed validation. read_error: getItem threw, so the real data is unknown
+  // (possibly fine) and must neither be overwritten nor reset.
+  kind: 'corrupt' | 'read_error';
 }
 
 // One issue per key so a second corrupt key can never unguard the first.
 const loadIssues = new Map<string, LoadIssue>();
-let storageErrorHandler: (err: unknown) => void = err => console.error('[bettrack] storage error', err);
+let storageErrorHandler: ((err: unknown) => void) | null = null;
+// Stores hydrate at module load, before any UI can register a handler; keep those errors for it.
+const pendingErrors: unknown[] = [];
+const MAX_PENDING = 5;
 
 // A throwing handler must not escape through zustand's set().
 function onStorageError(err: unknown): void {
+  if (!storageErrorHandler) {
+    console.error('[bettrack] storage error', err);
+    if (pendingErrors.length < MAX_PENDING) pendingErrors.push(err);
+    return;
+  }
   try {
     storageErrorHandler(err);
   } catch {
@@ -28,17 +39,25 @@ export const clearLoadIssue = (key?: string): void => {
   if (key === undefined) loadIssues.clear();
   else loadIssues.delete(key);
 };
-export const setStorageErrorHandler = (fn: (err: unknown) => void): void => {
+/** Registers the UI error reporter and flushes errors raised before it existed. null unregisters. */
+export const setStorageErrorHandler = (fn: ((err: unknown) => void) | null): void => {
   storageErrorHandler = fn;
+  if (!fn) return;
+  for (const err of pendingErrors.splice(0)) onStorageError(err);
 };
 
-// SSR / blocked storage: behave as an empty store instead of throwing.
+// SSR: silently behave as an empty store. In the browser, a throwing/missing localStorage
+// (Safari "Block All Cookies", disabled DOM storage) means nothing will be saved, so say so.
 function ls(): Storage | null {
+  if (typeof window === 'undefined') return null;
   try {
-    return typeof localStorage === 'undefined' ? null : localStorage;
-  } catch {
-    return null;
+    const store = window.localStorage;
+    if (store) return store;
+    onStorageError(new Error('localStorage is unavailable'));
+  } catch (err) {
+    onStorageError(err);
   }
+  return null;
 }
 
 const isValidPrecision = (p: unknown): boolean => Number.isInteger(p) && (p as number) >= 0 && (p as number) <= 8;
@@ -71,6 +90,8 @@ export const safeStorage: StateStorage = {
     try {
       raw = store.getItem(name);
     } catch (err) {
+      // The data may still be there: block writes so defaults can't overwrite it.
+      loadIssues.set(name, { key: name, raw: '', kind: 'read_error' });
       onStorageError(err);
       return null;
     }
@@ -78,7 +99,7 @@ export const safeStorage: StateStorage = {
     const ok = validate(name, raw);
     if (ok === null) {
       // Keep the raw text so the user can export/recover it; setItem refuses to overwrite it.
-      loadIssues.set(name, { key: name, raw });
+      loadIssues.set(name, { key: name, raw, kind: 'corrupt' });
       return null;
     }
     return ok;
@@ -86,16 +107,20 @@ export const safeStorage: StateStorage = {
   setItem(name, value) {
     // Never clobber data we failed to load: the user may still be able to recover it.
     if (loadIssues.has(name)) return;
+    const store = ls();
+    if (!store) return;
     try {
-      ls()?.setItem(name, value);
+      store.setItem(name, value);
     } catch (err) {
       onStorageError(err);
     }
   },
   removeItem(name) {
     if (loadIssues.has(name)) return;
+    const store = ls();
+    if (!store) return;
     try {
-      ls()?.removeItem(name);
+      store.removeItem(name);
     } catch (err) {
       onStorageError(err);
     }
