@@ -11,15 +11,19 @@ interface Props {
 }
 
 /** One-tap multiplier picker; picking only fills the field, it never records a round. */
-export function MultiplierChips({ value, options, onPick }: Props) {
+export function MultiplierChips({ value, defaultMultiplier, options, onPick }: Props) {
   const parsed = parseMoneyInput(value);
   // Compare by Decimal so "2.0" in the field still highlights the "2" chip; unparseable = nothing active.
   const isActive = (m: string) => parsed.ok && D(parsed.value).eq(D(m));
 
+  const parsedDefault = parseMoneyInput(defaultMultiplier);
+  // Label by value, not position, so the badge stays correct even if the default is invalid/absent.
+  const isDefault = (m: string) => parsedDefault.ok && D(parsedDefault.value).eq(D(m));
+
   if (options.length === 0) return null;
   return (
-    <div role="group" aria-label="Quick multipliers" className="-mx-1 flex gap-2 overflow-x-auto px-1 py-1">
-      {options.map((m, i) => {
+    <div role="group" aria-label="Quick multipliers" className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 py-1">
+      {options.map(m => {
         const active = isActive(m);
         return (
           <button
@@ -34,7 +38,7 @@ export function MultiplierChips({ value, options, onPick }: Props) {
             )}
           >
             <span>{m}x</span>
-            {i === 0 && <span className="text-[10px] font-normal leading-none text-muted-foreground">Default</span>}
+            {isDefault(m) && <span className="text-[10px] font-normal leading-none text-muted-foreground">Default</span>}
           </button>
         );
       })}

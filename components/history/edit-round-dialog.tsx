@@ -75,7 +75,7 @@ function EditForm({ round, index, onDone }: { round: Round; index: number; onDon
 
   return (
     <form
-      className="grid gap-4"
+      className="grid grid-cols-[minmax(0,1fr)] gap-4"
       onSubmit={e => {
         e.preventDefault();
         save();
