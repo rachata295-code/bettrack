@@ -9,15 +9,27 @@ export interface LoadIssue {
   raw: string;
 }
 
-let loadIssue: LoadIssue | null = null;
-let onStorageError: (err: unknown) => void = err => console.error('[bettrack] storage error', err);
+// One issue per key so a second corrupt key can never unguard the first.
+const loadIssues = new Map<string, LoadIssue>();
+let storageErrorHandler: (err: unknown) => void = err => console.error('[bettrack] storage error', err);
 
-export const getLoadIssue = (): LoadIssue | null => loadIssue;
-export const clearLoadIssue = (): void => {
-  loadIssue = null;
+// A throwing handler must not escape through zustand's set().
+function onStorageError(err: unknown): void {
+  try {
+    storageErrorHandler(err);
+  } catch {
+    // ignore
+  }
+}
+
+export const getLoadIssues = (): LoadIssue[] => [...loadIssues.values()];
+export const getLoadIssue = (): LoadIssue | null => loadIssues.values().next().value ?? null;
+export const clearLoadIssue = (key?: string): void => {
+  if (key === undefined) loadIssues.clear();
+  else loadIssues.delete(key);
 };
 export const setStorageErrorHandler = (fn: (err: unknown) => void): void => {
-  onStorageError = fn;
+  storageErrorHandler = fn;
 };
 
 // SSR / blocked storage: behave as an empty store instead of throwing.
@@ -66,14 +78,14 @@ export const safeStorage: StateStorage = {
     const ok = validate(name, raw);
     if (ok === null) {
       // Keep the raw text so the user can export/recover it; setItem refuses to overwrite it.
-      loadIssue = { key: name, raw };
+      loadIssues.set(name, { key: name, raw });
       return null;
     }
     return ok;
   },
   setItem(name, value) {
     // Never clobber data we failed to load: the user may still be able to recover it.
-    if (loadIssue?.key === name) return;
+    if (loadIssues.has(name)) return;
     try {
       ls()?.setItem(name, value);
     } catch (err) {
@@ -81,7 +93,7 @@ export const safeStorage: StateStorage = {
     }
   },
   removeItem(name) {
-    if (loadIssue?.key === name) return;
+    if (loadIssues.has(name)) return;
     try {
       ls()?.removeItem(name);
     } catch (err) {
