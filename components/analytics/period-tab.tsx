@@ -89,7 +89,7 @@ export function PeriodTab() {
             </section>
           )}
           <CalendarHeatmap month={month} onMonthChange={setMonth} dayBuckets={dayBuckets} currency={currency} precision={precision} onSelectDay={setDay} />
-          {rows.length > 0 && <PeriodTable buckets={buckets} unit={state.unit} precision={precision} wallet={wallet.totals} walletMissingRates={wallet.missingRates} />}
+          {rows.length > 0 && <PeriodTable buckets={buckets} unit={state.unit} precision={precision} currency={currency} wallet={wallet.totals} walletMissingRates={wallet.missingRates} />}
           <DaySheet day={day} onClose={() => setDay(null)} rows={allRows} currency={currency} precision={precision} />
         </>
       )}

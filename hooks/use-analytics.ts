@@ -5,7 +5,7 @@ import {
   bucketize, collectRows, comparePeriods, filterRange,
   type AnalyticsRow, type BucketSummary, type PeriodUnit, type RangePreset, type RowFilter,
 } from '@/lib/calculations/periods';
-import { walletByBucket } from '@/lib/calculations/wallet';
+import { walletByBucket, type WalletBuckets } from '@/lib/calculations/wallet';
 import { useBetStore } from '@/store/bet-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useWalletStore } from '@/store/wallet-store';
@@ -48,17 +48,24 @@ export function useAnalytics(filter: RowFilter, range: AnalyticsRange, unit: Per
 }
 
 /**
- * Wallet totals aligned to the table's buckets. `missingRates` means transactions exist but cannot be
- * converted; `totals` is null when no transaction falls in any shown bucket (so no columns appear).
+ * Wallet totals aligned to the table's buckets. `missingRates` lists the currencies whose transactions
+ * cannot be converted (empty when none); `totals` is null when no transaction falls in any shown
+ * bucket (so no columns appear). Totals cover every session's transactions, not just the filter.
  */
-export function useWalletColumns(buckets: readonly BucketSummary[], unit: PeriodUnit, currency: Currency) {
+export function useWalletColumns(
+  buckets: readonly BucketSummary[],
+  unit: PeriodUnit,
+  currency: Currency,
+): { totals: WalletBuckets | null; missingRates: Currency[] } {
   const transactions = useWalletStore(s => s.transactions);
   const fx = useSettingsStore(s => s.fx);
   return useMemo(() => {
-    if (transactions.length === 0) return { totals: null, missingRates: false };
+    if (transactions.length === 0) return { totals: null, missingRates: [] };
     const w = walletByBucket(transactions, unit, currency, fx);
-    if ('missingRates' in w) return { totals: null, missingRates: true };
-    const overlaps = buckets.some(b => w[b.key] !== undefined);
-    return { totals: overlaps ? w : null, missingRates: false };
+    // WalletBuckets is a string-keyed record, so narrow on the array shape rather than the key alone.
+    if ('missingRates' in w && Array.isArray(w.missingRates)) return { totals: null, missingRates: w.missingRates as Currency[] };
+    const totals = w as WalletBuckets;
+    const overlaps = buckets.some(b => totals[b.key] !== undefined);
+    return { totals: overlaps ? totals : null, missingRates: [] };
   }, [transactions, fx, unit, currency, buckets]);
 }

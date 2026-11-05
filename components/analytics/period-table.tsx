@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { ArrowDown, ArrowUp, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { summaryFilename } from '@/lib/io/filename';
 import type { WalletBuckets } from '@/lib/calculations/wallet';
 import { bucketsToCsv } from '@/lib/io/period-csv';
 import { cn } from '@/lib/utils';
+import type { Currency } from '@/types';
 
 const COLUMNS: { key: BucketSortKey; label: string; numeric: boolean }[] = [
   { key: 'period', label: 'Period', numeric: false },
@@ -32,14 +34,17 @@ function tone(signedText: string): string {
 }
 
 export function PeriodTable({
-  buckets, unit, precision, wallet = null, walletMissingRates = false,
+  buckets, unit, precision, currency, wallet = null, walletMissingRates = [],
 }: {
   buckets: readonly BucketSummary[];
   unit: PeriodUnit;
   precision: number;
+  /** Currency the wallet columns were converted to (shown in their headers). */
+  currency: Currency;
   /** Deposits/withdrawals per bucket key (already converted in lib); null hides the columns. */
   wallet?: WalletBuckets | null;
-  walletMissingRates?: boolean;
+  /** Currencies with no exchange rate set; non-empty hides the wallet columns. */
+  walletMissingRates?: readonly Currency[];
 }) {
   // Newest period first: that is what people look for after a session.
   const [sort, setSort] = useState<{ key: BucketSortKey; dir: 'asc' | 'desc' }>({ key: 'period', dir: 'desc' });
@@ -65,8 +70,16 @@ export function PeriodTable({
           <Download /> Export CSV
         </Button>
       </div>
-      {walletMissingRates && (
-        <p className="text-xs text-muted-foreground">Wallet totals hidden: set a USDT/THB rate in Settings</p>
+      {walletMissingRates.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Wallet totals hidden: set an exchange rate in <Link href="/settings" className="underline underline-offset-2">Settings</Link> to convert {walletMissingRates.join(', ')} to {currency}.
+        </p>
+      )}
+      {wallet && (
+        // Wallet transactions are not tied to a session or the filters, so say so instead of implying they are.
+        <p className="text-xs text-muted-foreground">
+          Wallet totals include every session; periods without rounds aren&apos;t listed — see <Link href="/wallet" className="underline underline-offset-2">Wallet</Link> for full totals.
+        </p>
       )}
       <Table>
         <TableHeader>
@@ -92,8 +105,8 @@ export function PeriodTable({
             })}
             {wallet && (
               <>
-                <TableHead className="text-right whitespace-nowrap">Deposits</TableHead>
-                <TableHead className="text-right whitespace-nowrap">Withdrawals</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Deposits (all sessions, {currency})</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Withdrawals (all sessions, {currency})</TableHead>
               </>
             )}
           </TableRow>
