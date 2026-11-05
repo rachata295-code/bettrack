@@ -29,6 +29,16 @@ export function periodKey(iso: string, unit: PeriodUnit, tz: string = APP_TZ): s
   return fmt(at(iso, tz), unit);
 }
 
+/**
+ * Milliseconds from `now` until the next 00:00 in `tz`, so live views can roll "today"/"this week"
+ * over at Bangkok midnight even when nothing else re-renders them.
+ */
+export function msUntilNextBangkokMidnight(now: Date, tz: string = APP_TZ): number {
+  const local = at(now, tz);
+  const next = new TZDate(local.getFullYear(), local.getMonth(), local.getDate() + 1, tz);
+  return next.getTime() - now.getTime();
+}
+
 export interface AnalyticsRow extends TimelineRow {
   sessionId: string;
   sessionName: string;

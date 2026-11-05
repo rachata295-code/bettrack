@@ -6,6 +6,7 @@ import {
   type AnalyticsRow, type BucketSummary, type PeriodUnit, type RangePreset, type RowFilter,
 } from '@/lib/calculations/periods';
 import { useBetStore } from '@/store/bet-store';
+import { useBangkokDayKey } from './use-bangkok-day-key';
 
 export type AnalyticsRange = RangePreset | { from: string; to: string };
 
@@ -25,8 +26,9 @@ export function useAnalytics(filter: RowFilter, range: AnalyticsRange, unit: Per
   const sessions = useBetStore(s => s.sessions);
   const allRows = useMemo(() => collectRows(sessions, filter), [sessions, filter]);
   const dayBuckets = useMemo(() => bucketize(allRows, 'day'), [allRows]);
+  // Recompute range/compare when the Bangkok day changes, even with no new data.
+  const today = useBangkokDayKey();
   return useMemo(() => {
-    // `now` is read per recompute; a page left open past midnight refreshes on the next data change.
     const now = new Date();
     const rows = filterRange(allRows, range, now);
     return {
@@ -37,5 +39,6 @@ export function useAnalytics(filter: RowFilter, range: AnalyticsRange, unit: Per
       // Comparison ignores the range so "this week" is never truncated by a 7-day window.
       compare: comparePeriods(allRows, unit, now),
     };
-  }, [allRows, dayBuckets, range, unit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` is a deliberate recompute trigger.
+  }, [allRows, dayBuckets, range, unit, today]);
 }

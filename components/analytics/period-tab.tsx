@@ -9,7 +9,8 @@ import { CalendarHeatmap } from '@/components/charts/calendar-heatmap';
 import { PnlBarChart } from '@/components/charts/pnl-bar-chart';
 import { useActiveSession } from '@/hooks/use-active-session';
 import { useAnalytics, type AnalyticsRange } from '@/hooks/use-analytics';
-import { periodKey, type RowFilter } from '@/lib/calculations/periods';
+import { useBangkokDayKey } from '@/hooks/use-bangkok-day-key';
+import { type RowFilter } from '@/lib/calculations/periods';
 import { bucketSeries } from '@/lib/calculations/series';
 import { useBetStore } from '@/store/bet-store';
 import { useSettingsStore } from '@/store/settings-store';
@@ -29,7 +30,10 @@ export function PeriodTab() {
   const [state, setState] = useState<PeriodFilterState>(() => ({
     currency: active.currency, sessionId: 'all', tags: [], range: '30d', from: '', to: '', unit: 'day',
   }));
-  const [month, setMonth] = useState(() => periodKey(new Date().toISOString(), 'month'));
+  // null = follow the current Bangkok month (rolls over on a tab left open); a key once the user browses.
+  const today = useBangkokDayKey();
+  const [monthPick, setMonth] = useState<string | null>(null);
+  const month = monthPick ?? today.slice(0, 7);
   const [day, setDay] = useState<string | null>(null);
   const patch = (p: Partial<PeriodFilterState> | ((s: PeriodFilterState) => Partial<PeriodFilterState>)) =>
     setState(s => ({ ...s, ...(typeof p === 'function' ? p(s) : p) }));

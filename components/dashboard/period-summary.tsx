@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useBangkokDayKey } from '@/hooks/use-bangkok-day-key';
 import { formatMoney } from '@/lib/calculations/money';
 import { collectRows, comparePeriods, type PeriodUnit } from '@/lib/calculations/periods';
 import { cn } from '@/lib/utils';
@@ -18,11 +19,14 @@ export function PeriodSummary({
   currency: Currency;
   precision: number;
 }) {
+  // Rolls Today / This week over at Bangkok midnight on a dashboard left open.
+  const today = useBangkokDayKey();
   const cards = useMemo(() => {
     const rows = collectRows(sessions, { currency });
     const now = new Date();
     return (['day', 'week'] as const).map(unit => ({ unit, current: comparePeriods(rows, unit, now).current }));
-  }, [sessions, currency]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` is a deliberate recompute trigger.
+  }, [sessions, currency, today]);
   return (
     <section aria-label="Period summaries" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {cards.map(({ unit, current }) => {

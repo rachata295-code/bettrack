@@ -8,6 +8,7 @@ import {
 import { parseMoneyInput } from '@/lib/calculations/money';
 import { useBetStore } from '@/store/bet-store';
 import { useSettingsStore } from '@/store/settings-store';
+import { useBangkokDayKey } from './use-bangkok-day-key';
 import { useTimeline } from './use-timeline';
 
 export interface GuardView {
@@ -76,14 +77,18 @@ export function useGuard(bet: string): GuardView {
   const { enabled, n } = guard.lossStreak;
 
   // Display-only; recording re-checks against a fresh store snapshot at click time.
+  // `today` makes the daily-loss figures reset at Bangkok midnight on a page left open.
+  const today = useBangkokDayKey();
   const limitDetails = useMemo(
     () => evaluateSessionLimits({ session, sessions, dailyLossLimit: guard.dailyLossLimit, now: new Date() }),
-    [session, sessions, guard.dailyLossLimit],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` is a deliberate recompute trigger.
+    [session, sessions, guard.dailyLossLimit, today],
   );
 
   const progress = useMemo(
     () => evaluateSessionProgress({ session, sessions, dailyLossLimit: guard.dailyLossLimit, now: new Date() }),
-    [session, sessions, guard.dailyLossLimit],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` is a deliberate recompute trigger.
+    [session, sessions, guard.dailyLossLimit, today],
   );
 
   return {

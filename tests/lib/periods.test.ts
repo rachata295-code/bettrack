@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bucketize, collectRows, comparePeriods, dateKey, filterRange, periodKey, summarize,
+  bucketize, collectRows, comparePeriods, dateKey, filterRange, msUntilNextBangkokMidnight, periodKey, summarize,
   type AnalyticsRow,
 } from '@/lib/calculations/periods';
 import { computeTimeline } from '@/lib/calculations/timeline';
@@ -95,5 +95,19 @@ describe('bucketize / comparePeriods', () => {
     const m = comparePeriods(rows, 'month', new Date('2026-11-05T03:00:00Z'));
     expect([m.current.rounds, m.previous.key, m.previous.rounds]).toEqual([1, '2026-10', 1]);
     expect(comparePeriods(rows, 'week', new Date('2026-11-02T03:00:00Z')).previous.key).toBe('2026-W44');
+  });
+});
+
+describe('msUntilNextBangkokMidnight', () => {
+  it('counts to the next 00:00 Bangkok (UTC+7), not host midnight', () => {
+    // 2026-11-05 23:59:00 BKK = 16:59:00Z → 60 s left
+    expect(msUntilNextBangkokMidnight(new Date('2026-11-05T16:59:00Z'))).toBe(60_000);
+    // 00:00:00 BKK exactly → a full day to the next one
+    expect(msUntilNextBangkokMidnight(new Date('2026-11-05T17:00:00Z'))).toBe(86_400_000);
+    // 12:00 UTC = 19:00 BKK → 5 h
+    expect(msUntilNextBangkokMidnight(new Date('2026-11-05T12:00:00Z'))).toBe(5 * 3_600_000);
+  });
+  it('crosses month and year boundaries', () => {
+    expect(msUntilNextBangkokMidnight(new Date('2026-12-31T16:30:00Z'))).toBe(30 * 60_000);
   });
 });
