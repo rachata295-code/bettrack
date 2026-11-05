@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { NAV_ITEMS, isActivePath } from './nav-items';
+import { PRIMARY_NAV_ITEMS, isActivePath } from './nav-items';
+import { MoreSheet } from './more-sheet';
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -13,7 +14,7 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <ul className="flex">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {PRIMARY_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = isActivePath(pathname, href);
           return (
             <li key={href} className="flex-1">
@@ -31,6 +32,9 @@ export function BottomNav() {
             </li>
           );
         })}
+        <li className="flex-1">
+          <MoreSheet />
+        </li>
       </ul>
     </nav>
   );

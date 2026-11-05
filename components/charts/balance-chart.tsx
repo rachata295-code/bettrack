@@ -1,6 +1,7 @@
 'use client';
 
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { formatMoney } from '@/lib/calculations/money';
 import type { BalancePoint } from '@/lib/calculations/series';
 import type { Currency } from '@/types';
 
@@ -59,7 +60,7 @@ export function BalanceChart({ data, initialBalance, showReference, currency, pr
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="round" type="number" domain={[0, 'dataMax']} allowDecimals={false}
             stroke="var(--muted-foreground)" tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} />
-          <YAxis domain={['auto', 'auto']} width={56} tickFormatter={(v: number) => v.toFixed(precision)}
+          <YAxis domain={['auto', 'auto']} width={56} tickFormatter={(v: number) => formatMoney(String(v), { precision })}
             stroke="var(--muted-foreground)" tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} />
           <Tooltip content={<ChartTooltip currency={currency} />} />
           {showReference && (
@@ -76,7 +77,7 @@ export function BalanceChart({ data, initialBalance, showReference, currency, pr
                 <circle key={props.index} cx={props.cx} cy={props.cy} r={3} fill={dotColor(props.payload?.result ?? null)} stroke="none" />
               )
               : false}
-            activeDot={{ r: 5 }}
+            activeDot={{ r: 5, fill: 'var(--accent)', stroke: 'none' }}
           />
         </LineChart>
       </ResponsiveContainer>

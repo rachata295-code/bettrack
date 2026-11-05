@@ -33,3 +33,20 @@ export function breakEvenRounds(loss: Money, bet: Money, multiplier: string): nu
   if (l.lte(0) || m.lte(1) || b.lte(0)) return null;
   return l.div(b.mul(m.minus(1))).toDecimalPlaces(0, Decimal.ROUND_CEIL).toNumber();
 }
+
+/**
+ * Win-probability percent at which EV is `-edgePct`% of the bet: (1 - edge)/m * 100, 2 dp.
+ * Used to pre-fill an illustrative example; null when the multiplier is not a positive number.
+ */
+export function houseEdgeExampleP(multiplier: string, edgePct = '1'): string | null {
+  const parsed = parseMoneyInput(multiplier);
+  if (!parsed.ok || D(parsed.value).lte(0)) return null;
+  return D('1').minus(D(edgePct).div(100)).div(parsed.value).mul(100)
+    .toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString();
+}
+
+/** Amount below the starting balance (0 when at or above it) — the default break-even target. */
+export function currentLoss(initialBalance: Money, balance: Money): Money {
+  const loss = D(initialBalance).minus(balance);
+  return loss.isNegative() ? '0' : loss.toString();
+}
