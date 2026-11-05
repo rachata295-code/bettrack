@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Download, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { GuardSettingsForm } from '@/components/guard/guard-settings-form';
+import { RealityCheckForm } from '@/components/settings/reality-check-form';
 import { FxFeesForm } from '@/components/settings/fx-fees-form';
 import { WithdrawalCalculator } from '@/components/wallet/withdrawal-calculator';
 import { ImportDialog } from '@/components/sessions/import-dialog';
@@ -91,6 +92,12 @@ export default function SettingsPage() {
         {/* key re-mounts the form when settings change elsewhere (e.g. a backup import). */}
         <FxFeesForm key={JSON.stringify({ fx, fees })} />
         <WithdrawalCalculator />
+      </section>
+
+      <section className="max-w-md space-y-3" aria-labelledby="set-reality">
+        <h2 id="set-reality" className="text-lg font-medium">Reality check</h2>
+        {/* key re-mounts the form when settings change elsewhere (e.g. a backup import). */}
+        <RealityCheckForm key={JSON.stringify(realityCheck)} />
       </section>
 
       <section className="max-w-md space-y-3" aria-labelledby="set-data">

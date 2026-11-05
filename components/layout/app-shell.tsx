@@ -1,6 +1,7 @@
 import { BottomNav } from './bottom-nav';
 import { Disclaimer } from './disclaimer';
 import { HydrationGate } from './hydration-gate';
+import { RealityCheckDialog } from './reality-check-dialog';
 import { Sidebar } from './sidebar';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -12,6 +13,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Disclaimer />
       </main>
       <BottomNav />
+      <RealityCheckDialog />
     </HydrationGate>
   );
 }

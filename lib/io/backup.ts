@@ -71,7 +71,7 @@ const feeSettings = z.unknown().transform((v, ctx) => {
   }
   return r.value;
 });
-const realityCheckSettings = z.object({ enabled: z.boolean(), intervalMin: z.number().int().min(1).max(1440) });
+const realityCheckSettings = z.object({ enabled: z.boolean(), intervalMin: z.number().int().min(5).max(240) });
 
 // Default zod behaviour strips unknown keys, so export-only fields like currentBalance are ignored on import.
 const sessionSchema = (date: DateSchema) =>

@@ -69,6 +69,7 @@ function ImportBody({ onDone }: { onDone: () => void }) {
         // Explicit '' clears a rate the backup does not have.
         if (backup.settings.fx) st.setFx({ usdtThb: backup.settings.fx.usdtThb ?? '', usdThb: backup.settings.fx.usdThb ?? '' });
         if (backup.settings.fees) st.setFees(backup.settings.fees);
+        if (backup.settings.realityCheck) st.setRealityCheck(backup.settings.realityCheck);
       }
       toast.success(`Imported ${added} sessions (${skipped} skipped)`);
       onDone();

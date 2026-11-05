@@ -4,7 +4,7 @@ import { DEFAULT_GUARD, sanitizeGuard, validateGuardPatch } from '@/lib/calculat
 import {
   DEFAULT_FEES, DEFAULT_FX, sanitizeFees, sanitizeFx, validateFeesPatch, validateFxPatch,
 } from '@/lib/calculations/fx';
-import { DEFAULT_REALITY_CHECK, sanitizeRealityCheck } from '@/lib/calculations/reality-check';
+import { DEFAULT_REALITY_CHECK, sanitizeRealityCheck, validateRealityCheck } from '@/lib/calculations/reality-check';
 import type { DeepPartial, FeeSettings, FxRates, GuardSettings, RealityCheckSettings } from '@/types';
 import { SETTINGS_KEY, safeStorage } from './storage';
 
@@ -23,6 +23,8 @@ interface SettingsState {
   fees: FeeSettings;
   setFees: (patch: Partial<FeeSettings>) => { ok: true } | { ok: false; errors: Record<string, string> };
   realityCheck: RealityCheckSettings;
+  /** Validates the merged result (interval: whole minutes 5-240); nothing changes on failure. */
+  setRealityCheck: (patch: Partial<RealityCheckSettings>) => { ok: true } | { ok: false; errors: Record<string, string> };
   resetFxFees: () => void;
 }
 
@@ -58,7 +60,13 @@ export const useSettingsStore = create<SettingsState>()(
         return { ok: true };
       },
       realityCheck: DEFAULT_REALITY_CHECK,
-      resetFxFees: () => set({ fx: DEFAULT_FX, fees: DEFAULT_FEES }),
+      setRealityCheck: patch => {
+        const r = validateRealityCheck({ ...get().realityCheck, ...patch });
+        if (!r.ok) return r;
+        set({ realityCheck: r.value });
+        return { ok: true };
+      },
+      resetFxFees: () => set({ fx: DEFAULT_FX, fees: DEFAULT_FEES, realityCheck: DEFAULT_REALITY_CHECK }),
     }),
     {
       name: SETTINGS_KEY,
