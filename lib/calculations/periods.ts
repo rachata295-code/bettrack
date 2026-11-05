@@ -9,7 +9,19 @@ import { computeTimeline, type TimelineRow } from './timeline';
 export const APP_TZ = 'Asia/Bangkok';
 export type PeriodUnit = 'day' | 'week' | 'month';
 
-const MAX_GAP_MS = 15 * 60_000;
+/** Gaps longer than this between rounds are breaks, not play time (Period tab + reality check). */
+export const MAX_GAP_MS = 15 * 60_000;
+
+/** Active play time in ms: sum of gaps ≤ MAX_GAP_MS between consecutive timestamps (any order in). */
+export function activePlayMs(timesMs: readonly number[]): number {
+  const sorted = [...timesMs].sort((a, b) => a - b);
+  let ms = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = sorted[i]! - sorted[i - 1]!;
+    if (gap <= MAX_GAP_MS) ms += gap;
+  }
+  return ms;
+}
 
 function at(iso: string | number | Date, tz: string): TZDate {
   return new TZDate(typeof iso === 'string' ? Date.parse(iso) : +iso, tz);
@@ -135,8 +147,7 @@ export function summarize(key: string, rows: readonly AnalyticsRow[]): BucketSum
   let cum = D('0');
   let peak = D('0');
   let maxDd = D('0');
-  let playMs = 0;
-  sorted.forEach((r, i) => {
+  sorted.forEach(r => {
     if (r.round.result === 'win') wins++;
     if (r.chasing) chasing++;
     wagered = wagered.plus(r.round.bet);
@@ -144,12 +155,8 @@ export function summarize(key: string, rows: readonly AnalyticsRow[]): BucketSum
     cum = cum.plus(r.pnl);
     if (cum.gt(peak)) peak = cum;
     if (peak.minus(cum).gt(maxDd)) maxDd = peak.minus(cum);
-    if (i > 0) {
-      // Long gaps are breaks, not play time.
-      const gap = Date.parse(r.round.createdAt) - Date.parse(sorted[i - 1]!.round.createdAt);
-      if (gap <= MAX_GAP_MS) playMs += gap;
-    }
   });
+  const playMs = activePlayMs(sorted.map(r => Date.parse(r.round.createdAt)));
   const n = sorted.length;
   const pnl = payouts.minus(wagered);
   return {

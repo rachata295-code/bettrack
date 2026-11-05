@@ -21,8 +21,9 @@ export interface RealityCheckView {
 }
 
 /**
- * Responsible-play reminder: opens every `intervalMin` minutes of play (measured from the first
- * round of the Bangkok day) for the active session. Answering either button acks the current
+ * Responsible-play reminder: opens every `intervalMin` minutes of ACTIVE play today (gaps > 15 min
+ * between rounds don't count) for the active session, and only while the user is still playing
+ * (latest round within `intervalMin` of now) — never hours later after they stopped (R19). Answering either button acks the current
  * interval, so it only reappears at the next one.
  */
 export function useRealityCheck(): RealityCheckView {
@@ -50,7 +51,7 @@ export function useRealityCheck(): RealityCheckView {
   const state = useMemo(() => realityState(session.rounds, now, intervalMin), [session.rounds, now, intervalMin]);
   const day = dateKey(now.toISOString());
   const acked = !!ack && ack.sessionId === session.id && ack.day === day && !!state && ack.index >= state.dueIndex;
-  const open = enabled && !!state && state.dueIndex >= 1 && !acked;
+  const open = enabled && !!state && state.playing && state.dueIndex >= 1 && !acked;
 
   const dueIndex = state?.dueIndex ?? 0;
   const ackNow = useCallback(
@@ -60,7 +61,7 @@ export function useRealityCheck(): RealityCheckView {
 
   return {
     open,
-    elapsedText: formatPlayTime(state?.elapsedMin ?? 0),
+    elapsedText: formatPlayTime(state?.activeMin ?? 0),
     pnlText: formatMoney(sessionTodayPnl(session, now), { precision, currency: session.currency, signed: true }),
     sessionName: session.name,
     takeBreak: () => {

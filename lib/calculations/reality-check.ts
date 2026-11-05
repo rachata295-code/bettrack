@@ -1,6 +1,6 @@
 import type { Money, RealityCheckSettings, Round, Session } from '@/types';
 import { D } from './money';
-import { APP_TZ, dateKey } from './periods';
+import { activePlayMs, APP_TZ, dateKey } from './periods';
 import { computeTimeline } from './timeline';
 
 export const DEFAULT_REALITY_CHECK: RealityCheckSettings = { enabled: true, intervalMin: 30 };
@@ -31,14 +31,18 @@ export function validateRealityCheck(
 
 export interface RealityState {
   startedAt: string;
-  elapsedMin: number;
+  /** Active play minutes today: gaps > 15 min between rounds are breaks (same rule as the Period tab). */
+  activeMin: number;
   dueIndex: number;
   todayRounds: number;
+  /** Latest round today is within `intervalMin` of now; the reminder only opens while playing (R19). */
+  playing: boolean;
 }
 
 /**
- * Time since the first round of today (Bangkok day), in whole minutes. null when nothing was
- * recorded today, so the reminder restarts every day. dueIndex counts how many intervals have passed.
+ * Today's (Bangkok day) active play for the reminder. null when nothing was recorded today, so it
+ * restarts every day. dueIndex = floor(activeMin / intervalMin). Wall-clock time since the first
+ * round is NOT used: it would pop up hours later for someone who stopped playing long ago.
  */
 export function realityState(
   rounds: readonly Round[],
@@ -47,17 +51,26 @@ export function realityState(
   tz: string = APP_TZ,
 ): RealityState | null {
   const today = dateKey(now.toISOString(), tz);
+  const times: number[] = [];
   let first: { iso: string; ms: number } | null = null;
-  let count = 0;
+  let lastMs = -Infinity;
   for (const r of rounds) {
     const ms = Date.parse(r.createdAt);
     if (!Number.isFinite(ms) || dateKey(r.createdAt, tz) !== today) continue;
-    count++;
+    times.push(ms);
     if (!first || ms < first.ms) first = { iso: r.createdAt, ms };
+    if (ms > lastMs) lastMs = ms;
   }
   if (!first) return null;
-  const elapsedMin = Math.max(0, Math.floor((now.getTime() - first.ms) / 60_000));
-  return { startedAt: first.iso, elapsedMin, dueIndex: Math.floor(elapsedMin / intervalMin), todayRounds: count };
+  const activeMin = Math.floor(activePlayMs(times) / 60_000);
+  const sinceLast = now.getTime() - lastMs;
+  return {
+    startedAt: first.iso,
+    activeMin,
+    dueIndex: Math.floor(activeMin / intervalMin),
+    todayRounds: times.length,
+    playing: sinceLast <= intervalMin * 60_000,
+  };
 }
 
 /** Sum of P&L of the session's rounds recorded today (Bangkok), full precision. */
