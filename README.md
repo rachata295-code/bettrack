@@ -46,6 +46,11 @@ Guard is a set of warnings and suggestions about your own bankroll, configured i
 - Calendar heatmap of daily P&L, with a day detail sheet
 - CSV export of period summaries
 
+### Simulator
+
+- Monte Carlo simulator (More > Simulator): runs thousands of simulated sessions under a win probability *you assume* (the field starts empty; an example button fills a 1% house edge). Fixed or percent-of-balance bets, seedable and repeatable, runs in a Web Worker with progress and Cancel
+- Shows risk of ruin, median and mean final balance, chance of finishing above the start, and a 10th to 90th percentile band chart. It is a simulation of your assumption, not a forecast
+
 ## Roadmap
 
 - **M3: Extras** wallet and real P&L, currency and fees, Monte Carlo simulator, PWA
