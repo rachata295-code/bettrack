@@ -20,8 +20,8 @@ export default function SessionsPage() {
   const exportAll = () => {
     try {
       const { sessions } = useBetStore.getState();
-      const { precision, guard } = useSettingsStore.getState();
-      downloadText(exportFilename('backup', 'json'), JSON.stringify(createBackup(sessions, { precision, guard }), null, 2), 'application/json');
+      const { precision, guard, fx, fees, realityCheck } = useSettingsStore.getState();
+      downloadText(exportFilename('backup', 'json'), JSON.stringify(createBackup(sessions, { precision, guard, fx, fees, realityCheck }), null, 2), 'application/json');
     } catch {
       toast.error('Export failed');
     }

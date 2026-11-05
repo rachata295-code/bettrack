@@ -33,7 +33,22 @@ export interface Session {
 export interface Settings {
   precision: number; // 0-8, default 2
   guard?: GuardSettings;
+  fx?: FxRates;
+  fees?: FeeSettings;
+  realityCheck?: RealityCheckSettings;
 }
+
+// Manual exchange rates (THB per 1 unit); entered by the user, never fetched.
+export type FxRates = { usdtThb?: Money; usdThb?: Money };
+
+export type FeeSettings = {
+  cryptoWithdrawFee: Money; // in the withdrawn currency
+  tradeFeePct: string; // exchange trading fee, 0 <= x < 100
+  spreadPct: string; // 0 <= x < 100
+  thbWithdrawFee: Money; // in THB
+};
+
+export type RealityCheckSettings = { enabled: boolean; intervalMin: number };
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 

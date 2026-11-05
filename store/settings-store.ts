@@ -1,7 +1,11 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { DEFAULT_GUARD, sanitizeGuard, validateGuardPatch } from '@/lib/calculations/guard';
-import type { DeepPartial, GuardSettings } from '@/types';
+import {
+  DEFAULT_FEES, DEFAULT_FX, sanitizeFees, sanitizeFx, validateFeesPatch, validateFxPatch,
+} from '@/lib/calculations/fx';
+import { DEFAULT_REALITY_CHECK, sanitizeRealityCheck } from '@/lib/calculations/reality-check';
+import type { DeepPartial, FeeSettings, FxRates, GuardSettings, RealityCheckSettings } from '@/types';
 import { SETTINGS_KEY, safeStorage } from './storage';
 
 export const DEFAULT_PRECISION = 2;
@@ -13,6 +17,13 @@ interface SettingsState {
   /** Validates the merged result; on failure nothing changes. */
   setGuard: (patch: DeepPartial<GuardSettings>) => { ok: true } | { ok: false; errors: Record<string, string> };
   resetGuard: () => void;
+  fx: FxRates;
+  /** Keys given are merged into the current rates; '' removes one. Nothing changes on failure. */
+  setFx: (patch: Partial<FxRates>) => { ok: true } | { ok: false; errors: Record<string, string> };
+  fees: FeeSettings;
+  setFees: (patch: Partial<FeeSettings>) => { ok: true } | { ok: false; errors: Record<string, string> };
+  realityCheck: RealityCheckSettings;
+  resetFxFees: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -32,21 +43,46 @@ export const useSettingsStore = create<SettingsState>()(
         return { ok: true };
       },
       resetGuard: () => set({ guard: DEFAULT_GUARD }),
+      fx: DEFAULT_FX,
+      setFx: patch => {
+        const r = validateFxPatch({ ...get().fx, ...patch });
+        if (!r.ok) return r;
+        set({ fx: r.value });
+        return { ok: true };
+      },
+      fees: DEFAULT_FEES,
+      setFees: patch => {
+        const r = validateFeesPatch(get().fees, patch);
+        if (!r.ok) return r;
+        set({ fees: r.value });
+        return { ok: true };
+      },
+      realityCheck: DEFAULT_REALITY_CHECK,
+      resetFxFees: () => set({ fx: DEFAULT_FX, fees: DEFAULT_FEES }),
     }),
     {
       name: SETTINGS_KEY,
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => safeStorage),
-      partialize: s => ({ precision: s.precision, guard: s.guard }),
-      // v1 -> v2: guard did not exist yet.
+      partialize: s => ({ precision: s.precision, guard: s.guard, fx: s.fx, fees: s.fees, realityCheck: s.realityCheck }),
+      // v1 -> v2: guard did not exist yet. v2 -> v3: fx, fees and realityCheck did not exist yet.
       migrate: (persisted, version) => {
-        const p = (persisted ?? {}) as Partial<SettingsState>;
-        return (version < 2 ? { ...p, guard: DEFAULT_GUARD } : p) as SettingsState;
+        let p = (persisted ?? {}) as Partial<SettingsState>;
+        if (version < 2) p = { ...p, guard: DEFAULT_GUARD };
+        if (version < 3) p = { ...p, fx: DEFAULT_FX, fees: DEFAULT_FEES, realityCheck: DEFAULT_REALITY_CHECK };
+        return p as SettingsState;
       },
-      // Last line of defence: a malformed guard (e.g. edited by hand) must never reach the UI.
+      // Last line of defence: malformed guard/fx/fees (e.g. edited by hand) must never reach the UI.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SettingsState>;
-        return { ...current, ...p, guard: sanitizeGuard(p.guard) };
+        return {
+          ...current,
+          ...p,
+          guard: sanitizeGuard(p.guard),
+          fx: sanitizeFx(p.fx),
+          fees: sanitizeFees(p.fees),
+          realityCheck: sanitizeRealityCheck(p.realityCheck),
+        };
       },
     },
   ),

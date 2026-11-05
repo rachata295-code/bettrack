@@ -60,6 +60,13 @@ function ImportBody({ onDone }: { onDone: () => void }) {
         // Older (M1) backups carry no guard: keep the user's current guard rather than resetting it.
         if (backup.settings.guard) useSettingsStore.getState().setGuard({ ...backup.settings.guard, dailyLossLimit: backup.settings.guard.dailyLossLimit });  // explicit key so a missing limit clears the old one
       }
+      // Restored only when present, so M1/M2 backups keep the user's current rates and fees.
+      if (mode === 'replace' && backup.settings) {
+        const st = useSettingsStore.getState();
+        // Explicit '' clears a rate the backup does not have.
+        if (backup.settings.fx) st.setFx({ usdtThb: backup.settings.fx.usdtThb ?? '', usdThb: backup.settings.fx.usdThb ?? '' });
+        if (backup.settings.fees) st.setFees(backup.settings.fees);
+      }
       toast.success(`Imported ${added} sessions (${skipped} skipped)`);
       onDone();
     } catch {

@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Download, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { GuardSettingsForm } from '@/components/guard/guard-settings-form';
+import { FxFeesForm } from '@/components/settings/fx-fees-form';
+import { WithdrawalCalculator } from '@/components/wallet/withdrawal-calculator';
 import { ImportDialog } from '@/components/sessions/import-dialog';
 import {
   AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -27,6 +29,9 @@ export default function SettingsPage() {
   const precision = useSettingsStore(s => s.precision);
   const setPrecision = useSettingsStore(s => s.setPrecision);
   const guard = useSettingsStore(s => s.guard);
+  const fx = useSettingsStore(s => s.fx);
+  const fees = useSettingsStore(s => s.fees);
+  const realityCheck = useSettingsStore(s => s.realityCheck);
   const [importing, setImporting] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [typed, setTyped] = useState('');
@@ -35,7 +40,7 @@ export default function SettingsPage() {
   const exportBackup = () => {
     try {
       const { sessions } = useBetStore.getState();
-      downloadText(exportFilename('backup', 'json'), JSON.stringify(createBackup(sessions, { precision, guard }), null, 2), 'application/json');
+      downloadText(exportFilename('backup', 'json'), JSON.stringify(createBackup(sessions, { precision, guard, fx, fees, realityCheck }), null, 2), 'application/json');
     } catch {
       toast.error('Export failed');
     }
@@ -46,6 +51,7 @@ export default function SettingsPage() {
     useBetStore.getState().resetAll();
     setPrecision(DEFAULT_PRECISION);
     useSettingsStore.getState().resetGuard();
+    useSettingsStore.getState().resetFxFees();
     setResetOpen(false);
     toast('All data reset');
   };
@@ -75,6 +81,13 @@ export default function SettingsPage() {
         <h2 id="set-guard" className="text-lg font-medium">Bankroll Guard</h2>
         {/* key re-mounts the form when settings change elsewhere (e.g. a backup import). */}
         <GuardSettingsForm key={JSON.stringify(guard)} />
+      </section>
+
+      <section className="max-w-md space-y-4" aria-labelledby="set-fx">
+        <h2 id="set-fx" className="text-lg font-medium">Exchange rates &amp; fees</h2>
+        {/* key re-mounts the form when settings change elsewhere (e.g. a backup import). */}
+        <FxFeesForm key={JSON.stringify({ fx, fees })} />
+        <WithdrawalCalculator />
       </section>
 
       <section className="max-w-md space-y-3" aria-labelledby="set-data">

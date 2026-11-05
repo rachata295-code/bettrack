@@ -1,5 +1,7 @@
 import type { StateStorage } from 'zustand/middleware';
 import { DEFAULT_GUARD, parseGuardSettings } from '@/lib/calculations/guard';
+import { sanitizeFees, sanitizeFx } from '@/lib/calculations/fx';
+import { sanitizeRealityCheck } from '@/lib/calculations/reality-check';
 import { StoredSessionSchema } from '@/lib/io/backup';
 
 export const BETS_KEY = 'bettrack:v1:bets';
@@ -89,7 +91,16 @@ function validate(name: string, raw: string): string | null {
     // A missing guard (v1 data) is left for the store's migrate to fill in.
     const precision = isValidPrecision(state.precision) ? state.precision : 2;
     const guard = state.guard === undefined ? undefined : (parseGuardSettings(state.guard) ?? DEFAULT_GUARD);
-    const next = { ...state, precision, ...(guard !== undefined ? { guard } : {}) };
+    // Same for fx/fees/realityCheck: missing (older version) is left for migrate, invalid becomes defaults.
+    const opt = (k: string, f: (v: unknown) => unknown) => (state[k] === undefined ? {} : { [k]: f(state[k]) });
+    const next = {
+      ...state,
+      precision,
+      ...(guard !== undefined ? { guard } : {}),
+      ...opt('fx', sanitizeFx),
+      ...opt('fees', sanitizeFees),
+      ...opt('realityCheck', sanitizeRealityCheck),
+    };
     return JSON.stringify({ ...(parsed as object), state: next });
   }
   return raw;

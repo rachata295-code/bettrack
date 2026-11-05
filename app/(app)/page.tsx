@@ -10,6 +10,7 @@ import { StatsGrid } from '@/components/dashboard/stats-grid';
 import { ResultButtons } from '@/components/calculator/result-buttons';
 import { GuardNotices } from '@/components/guard/guard-notices';
 import { LimitDialog } from '@/components/guard/limit-dialog';
+import { approxThbLabel } from '@/lib/calculations/fx';
 import { balanceSeries } from '@/lib/calculations/series';
 import { validateBetInput } from '@/lib/calculations/round';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ import { useSettingsStore } from '@/store/settings-store';
 export default function DashboardPage() {
   const { session, timeline, stats, balance } = useTimeline();
   const precision = useSettingsStore(s => s.precision);
+  const fx = useSettingsStore(s => s.fx);
   // Same per-session draft as the Calculator, so quick WIN/LOSE records what the user last set there.
   const { bet, multiplier } = useDraft(session.id);
   const { record, undo, locked, pending, confirm, cancel } = useGuardedRecord(bet, multiplier);
@@ -46,6 +48,7 @@ export default function DashboardPage() {
         currency={session.currency}
         precision={precision}
         hasInsufficient={timeline.some(r => r.insufficient)}
+        approxThb={approxThbLabel(stats.current, session.currency, fx, precision)}
       />
       <section aria-label="Quick record" className="space-y-2">
         {/* Keyed by session: the Dashboard is not remounted on switch, and a dismissal is per session. */}

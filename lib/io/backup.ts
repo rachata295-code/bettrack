@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { CURRENCIES } from '@/types';
 import type { Session, Settings } from '@/types';
 import { parseGuardSettings, validateLimitValue } from '@/lib/calculations/guard';
+import { DEFAULT_FEES, validateFeesPatch, validateFxPatch } from '@/lib/calculations/fx';
 import { D, isPositive, parseMoneyInput } from '@/lib/calculations/money';
 import { computeTimeline, currentBalance } from '@/lib/calculations/timeline';
 
@@ -51,6 +52,27 @@ const guardSettings = z.unknown().transform((v, ctx) => {
   return g;
 });
 
+// Strict like guard: normalised values only, invalid input rejects the file.
+const fxSettings = z.unknown().transform((v, ctx) => {
+  const r = typeof v === 'object' && v !== null && !Array.isArray(v) ? validateFxPatch(v as object) : null;
+  if (!r || !r.ok) {
+    ctx.addIssue({ code: 'custom', message: 'invalid exchange rates' });
+    return z.NEVER;
+  }
+  return r.value;
+});
+const feeSettings = z.unknown().transform((v, ctx) => {
+  const complete =
+    typeof v === 'object' && v !== null && (Object.keys(DEFAULT_FEES) as string[]).every(k => k in (v as object));
+  const r = complete ? validateFeesPatch(DEFAULT_FEES, v as object) : null;
+  if (!r || !r.ok) {
+    ctx.addIssue({ code: 'custom', message: 'invalid fee settings' });
+    return z.NEVER;
+  }
+  return r.value;
+});
+const realityCheckSettings = z.object({ enabled: z.boolean(), intervalMin: z.number().int().min(1).max(1440) });
+
 // Default zod behaviour strips unknown keys, so export-only fields like currentBalance are ignored on import.
 const sessionSchema = (date: DateSchema) =>
   z.object({
@@ -77,7 +99,16 @@ export const BackupSchema = z.object({
   version: z.literal(BACKUP_VERSION),
   exportedAt: isoDate,
   sessions: z.array(SessionSchema),
-  settings: z.object({ precision: z.number().int().min(0).max(8), guard: guardSettings.optional() }).optional(),
+  settings: z
+    .object({
+      precision: z.number().int().min(0).max(8),
+      guard: guardSettings.optional(),
+      // Optional so M1/M2 backups (no fx/fees/realityCheck) still parse.
+      fx: fxSettings.optional(),
+      fees: feeSettings.optional(),
+      realityCheck: realityCheckSettings.optional(),
+    })
+    .optional(),
 });
 
 export interface Backup {
