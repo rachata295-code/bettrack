@@ -18,19 +18,36 @@ Repository: <https://github.com/rachata295-code/bettrack>
 
 > Outcomes are uncertain. Past results do not predict future rounds. Figures here are your own records, not funds held on any platform. · ผลการเล่นไม่แน่นอน ผลในอดีตไม่ได้ทำนายรอบถัดไป
 
-## Features (M1)
+## Features
 
-- Dashboard: current balance, net P&L, ROI, highest/lowest, quick WIN/LOSE buttons and session statistics
+- Dashboard: current balance, net P&L, ROI, highest/lowest, quick WIN/LOSE buttons, compact balance chart, Today / This week P&L (all sessions of the current currency), Bankroll Guard status and session statistics
 - Calculator: live preview of win/lose outcome, input validation, double-press protection, undo/redo
 - Keyboard shortcuts: `W`, `L`, `U`, `B`, `M`, `?`
 - History: search, sort, edit, delete, undo, CSV export; rows whose bet exceeded the balance at that time are flagged
 - Sessions: create, rename, switch, delete; JSON backup export and import
 - Settings: display precision (0 to 8 decimals) and data management
 - Money is handled as decimal strings (decimal.js), never floating point; rounding only happens when displaying
+- Calculator multiplier quick-pick chips next to the free-form multiplier field
+
+### Bankroll Guard
+
+Guard is a set of warnings and suggestions about your own bankroll, configured in **Settings**. It never changes your bet for you and it does not predict anything: a suggestion is only a sizing rule (a percentage of your balance), and every round stays independent.
+
+- Suggested bet (percent of balance or fixed) with a "Use" button, and a risk level (low/medium/high) for the bet you typed
+- Loss-streak alert with an optional break (soft banner or hard cooldown countdown)
+- Per-session stop-loss and take-profit, plus a daily loss limit across sessions of the same currency; reaching one asks you to confirm before recording
+- Chasing alert when a bet is raised right after a loss
+
+### Analytics
+
+- Balance chart per session with a start-balance reference line
+- Risk tools: drawdown and bet-size views of your own records
+- Daily, weekly and monthly breakdowns with previous-period comparison. Periods use Bangkok time (`Asia/Bangkok`), weeks start on Monday, and sessions of different currencies are never mixed
+- Calendar heatmap of daily P&L, with a day detail sheet
+- CSV export of period summaries
 
 ## Roadmap
 
-- **M2: Analytics and Bankroll Guard** balance chart, daily/weekly/monthly analytics, bankroll guard warnings, risk tools, fuller dashboard
 - **M3: Extras** wallet and real P&L, currency and fees, Monte Carlo simulator, PWA
 
 ## Getting started
@@ -56,10 +73,10 @@ pnpm dev        # http://localhost:3000
 ## Project structure
 
 ```
-app/            Next.js App Router pages ((app)/ holds Dashboard, Calculator, History, Sessions, Settings)
-components/     UI: layout/, dashboard/, calculator/, history/, sessions/, ui/ (shadcn)
-hooks/          React hooks (timeline, recording rounds, shortcuts)
-lib/            Pure logic, no React: calculations/ (money, round, timeline, stats), io/ (backup, CSV)
+app/            Next.js App Router pages ((app)/ holds Dashboard, Calculator, History, Analytics, Sessions, Settings)
+components/     UI: layout/, dashboard/, calculator/, guard/, charts/, analytics/, history/, sessions/, ui/ (shadcn)
+hooks/          React hooks (timeline, guard, recording rounds, shortcuts)
+lib/            Pure logic, no React: calculations/ (money, round, timeline, stats, guard, chasing, periods, series, calendar, risk), io/ (backup, CSV)
 store/          Zustand stores and localStorage persistence
 types/          Shared TypeScript types
 tests/          Vitest tests
@@ -79,7 +96,7 @@ To back up, open **Sessions** and use the JSON export; to restore, use import on
 
 ## สรุปภาษาไทย
 
-BetTrack คือเครื่องคิดยอดเงินและสมุดบันทึกผลการเล่นส่วนตัว คุณกด WIN/LOSE เอง แอปคำนวณยอดคงเหลือและสถิติให้ ข้อมูลอยู่ใน localStorage ของเบราว์เซอร์เท่านั้น (ไม่มี backend) แอปนี้ไม่เชื่อมต่อเว็บพนัน ไม่ทำนายผล และไม่ใช่คำแนะนำทางการเงิน ควร export backup เป็นประจำที่หน้า Sessions
+BetTrack คือเครื่องคิดยอดเงินและสมุดบันทึกผลการเล่นส่วนตัว คุณกด WIN/LOSE เอง แอปคำนวณยอดคงเหลือและสถิติให้ ข้อมูลอยู่ใน localStorage ของเบราว์เซอร์เท่านั้น (ไม่มี backend) แอปนี้ไม่เชื่อมต่อเว็บพนัน ไม่ทำนายผล และไม่ใช่คำแนะนำทางการเงิน มี Bankroll Guard ที่เป็นเพียงการเตือนและข้อเสนอแนะขนาดเดิมพัน (ไม่ใช่การทำนาย และไม่เปลี่ยน bet ให้เอง) และหน้า Analytics (กราฟ ยอดรายวัน/สัปดาห์/เดือนตามเวลาไทย ปฏิทิน และ CSV) ควร export backup เป็นประจำที่หน้า Sessions
 
 ## License
 

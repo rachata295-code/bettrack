@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  currentLossStreak, evaluateSessionLimits, riskBand, suggestedBet,
-  type LimitHit, type LimitHitDetail, type RiskLevel,
+  currentLossStreak, evaluateSessionLimits, evaluateSessionProgress, riskBand, suggestedBet,
+  type LimitHit, type LimitHitDetail, type LimitProgress, type RiskLevel,
 } from '@/lib/calculations/guard';
 import { parseMoneyInput } from '@/lib/calculations/money';
 import type { Money } from '@/types';
@@ -20,9 +20,11 @@ export interface GuardView {
   streakAlert: boolean;
   /** Ticks every second while > 0; 0 when no break is running. */
   cooldownRemainingMs: number;
-  /** Not rendered yet: kept for Task 9's GuardStatusCard (limit status at a glance). */
+  /** Limits that are currently reached (used by GuardStatusCard-adjacent consumers and tests). */
   hits: LimitHit[];
   limitDetails: LimitHitDetail[];
+  /** One row per limit that is set, with used/limit amounts for the status card. */
+  progress: LimitProgress[];
 }
 
 /** Ticking "now" only while a cooldown is running, so idle pages do not re-render every second. */
@@ -79,6 +81,11 @@ export function useGuard(bet: string): GuardView {
     [session, sessions, guard.dailyLossLimit],
   );
 
+  const progress = useMemo(
+    () => evaluateSessionProgress({ session, sessions, dailyLossLimit: guard.dailyLossLimit, now: new Date() }),
+    [session, sessions, guard.dailyLossLimit],
+  );
+
   return {
     suggested,
     risk,
@@ -87,5 +94,6 @@ export function useGuard(bet: string): GuardView {
     cooldownRemainingMs,
     hits: limitDetails.map(d => d.hit),
     limitDetails,
+    progress,
   };
 }

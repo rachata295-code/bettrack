@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  chasingFlags, currentLossStreak, DEFAULT_GUARD, formatCountdown, limitHits, resolveLimit,
+  chasingFlags, currentLossStreak, DEFAULT_GUARD, formatCountdown, formatLimitProgress, limitHits, limitProgress, evaluateSessionProgress, resolveLimit,
   riskBand, suggestedBet, todayPnl, wouldChase,
 } from '@/lib/calculations/guard';
 import { collectRows } from '@/lib/calculations/periods';
@@ -118,5 +118,36 @@ describe('formatCountdown / defaults', () => {
       chasingAlert: true,
     });
     expect(DEFAULT_GUARD.dailyLossLimit).toBeUndefined();
+  });
+});
+
+describe('limitProgress', () => {
+  const base = { initialBalance: '100', balance: '94', todayPnl: '-3' };
+  it('omits unset and zero limits', () => {
+    expect(limitProgress(base)).toEqual([]);
+    expect(limitProgress({ ...base, limits: { stopLoss: { kind: 'amount', value: '0' } }, dailyLossLimit: '0' })).toEqual([]);
+  });
+  it('reports used vs limit for each set limit', () => {
+    const rows = limitProgress({
+      ...base,
+      limits: { stopLoss: { kind: 'amount', value: '10' }, takeProfit: { kind: 'percent', value: '5' } },
+      dailyLossLimit: '3',
+    });
+    expect(rows.map(r => [r.hit, r.used, r.limit, r.reached])).toEqual([
+      ['stop_loss', '6', '10', false],
+      ['take_profit', '0', '5', false],
+      ['daily_loss', '3', '3', true],
+    ]);
+    expect(formatLimitProgress(rows[0]!, 2, 'USDT')).toBe('Stop-loss: 6.00 / 10.00 USDT used');
+  });
+  it('clamps used at zero when the move goes the other way', () => {
+    const rows = limitProgress({ initialBalance: '100', balance: '107', todayPnl: '7', limits: { stopLoss: { kind: 'amount', value: '10' }, takeProfit: { kind: 'amount', value: '5' } }, dailyLossLimit: '4' });
+    expect(rows.map(r => [r.used, r.reached])).toEqual([['0', false], ['7', true], ['0', false]]);
+  });
+  it('evaluateSessionProgress derives balance and today P&L from sessions', () => {
+    const now = new Date('2026-11-04T12:00:00Z');
+    const s = { ...sess('a', 'USDT', bets([['L', '6']])), guard: { stopLoss: { kind: 'amount' as const, value: '10' } } };
+    const rows = evaluateSessionProgress({ session: s, sessions: [s], dailyLossLimit: '8', now });
+    expect(rows.map(r => [r.hit, r.used])).toEqual([['stop_loss', '6'], ['daily_loss', '6']]);
   });
 });

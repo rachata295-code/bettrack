@@ -106,6 +106,61 @@ export function formatLimitHit(d: LimitHitDetail, precision: number, currency: C
   return `${d.label}: ${formatMoney(d.current, { precision, signed: true })} / ${formatMoney(d.limit, { precision, currency })}`;
 }
 
+export interface LimitProgress {
+  hit: LimitHit;
+  label: string;
+  /** Amount of the limit consumed so far, never negative (a gain does not "refund" a loss limit). */
+  used: Money;
+  /** Resolved limit amount (always positive). */
+  limit: Money;
+  reached: boolean;
+}
+
+const PROGRESS_LABELS: Record<LimitHit, string> = {
+  stop_loss: 'Stop-loss',
+  take_profit: 'Take-profit',
+  daily_loss: 'Daily loss',
+};
+
+/** One row per limit that is set (and > 0), in a fixed order; unset limits are omitted. */
+export function limitProgress(input: Parameters<typeof limitHits>[0]): LimitProgress[] {
+  const { initialBalance, balance, limits, todayPnl: today, dailyLossLimit } = input;
+  const rows: LimitProgress[] = [];
+  const add = (hit: LimitHit, limit: Decimal, rawUsed: Decimal) => {
+    if (!limit.gt(0)) return; // same "<= 0 means not set" rule as limitHits
+    const used = Decimal.max(rawUsed, 0);
+    rows.push({ hit, label: PROGRESS_LABELS[hit], used: used.toString(), limit: limit.toString(), reached: used.gte(limit) });
+  };
+  if (limits?.stopLoss) add('stop_loss', D(resolveLimit(limits.stopLoss, initialBalance)), D(initialBalance).minus(balance));
+  if (limits?.takeProfit) add('take_profit', D(resolveLimit(limits.takeProfit, initialBalance)), D(balance).minus(initialBalance));
+  if (dailyLossLimit !== undefined) add('daily_loss', D(dailyLossLimit), D(today).neg());
+  return rows;
+}
+
+/** e.g. "Stop-loss: 6.00 / 10.00 USDT used". */
+export function formatLimitProgress(p: LimitProgress, precision: number, currency: Currency): string {
+  return `${p.label}: ${formatMoney(p.used, { precision })} / ${formatMoney(p.limit, { precision, currency })} used`;
+}
+
+/** Progress for the active session from raw state (display only; recording re-checks via evaluateSessionLimits). */
+export function evaluateSessionProgress(input: {
+  session: Session;
+  sessions: readonly Session[];
+  dailyLossLimit?: Money;
+  now: Date;
+  tz?: string;
+}): LimitProgress[] {
+  const { session, sessions, dailyLossLimit, now, tz } = input;
+  const balance = currentBalance(session.initialBalance, computeTimeline(session.initialBalance, session.rounds));
+  return limitProgress({
+    initialBalance: session.initialBalance,
+    balance,
+    limits: session.guard,
+    todayPnl: todayPnl(sessions, session.currency, now, tz),
+    dailyLossLimit,
+  });
+}
+
 /**
  * Limits for one session evaluated from raw state, so callers can check at click time
  * (fresh store snapshot) rather than trusting values captured at the last render.
