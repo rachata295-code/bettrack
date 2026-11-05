@@ -15,7 +15,6 @@ export interface Round {
   note?: string;
 }
 
-// `guard` (stop-loss / take-profit) is added in M2.
 export interface Session {
   id: string;
   name: string;
@@ -25,11 +24,29 @@ export interface Session {
   defaultMultiplier: string;
   rounds: Round[]; // array order = chronological order
   tags: string[];
+  guard?: SessionGuardLimits; // stop-loss / take-profit per session
   createdAt: string;
   updatedAt: string;
 }
 
-// M1 settings only; the rest arrive in later milestones.
+// Backup shape of persisted settings; guard is optional so M1 backups still parse.
 export interface Settings {
   precision: number; // 0-8, default 2
+  guard?: GuardSettings;
+}
+
+export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
+
+export type LimitValue = { kind: 'amount' | 'percent'; value: string };
+export interface SessionGuardLimits {
+  stopLoss?: LimitValue;
+  takeProfit?: LimitValue;
+}
+
+export interface GuardSettings {
+  sizing: { mode: 'fixed' | 'percent'; percent: string; minBet: string };
+  riskBands: { low: string; high: string }; // % of balance
+  lossStreak: { enabled: boolean; n: number; mode: 'soft' | 'hard'; cooldownMin: number };
+  dailyLossLimit?: Money; // all sessions of one currency, Bangkok day
+  chasingAlert: boolean;
 }

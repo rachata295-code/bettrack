@@ -6,8 +6,8 @@ import type { Round } from '@/types';
 const mk = (id: string, result: 'win' | 'lose', bet: string, createdAt: string, note?: string): Round => ({
   id, result, bet, multiplier: '2', createdAt, ...(note ? { note } : {}),
 });
-// Local-noon timestamps keep the date stable in any timezone.
-const day = (d: number) => new Date(2026, 10, d, 12, 0, 0).toISOString();
+// Noon Bangkok time (05:00Z) keeps the Asia/Bangkok date stable.
+const day = (d: number) => new Date(Date.UTC(2026, 10, d, 5, 0, 0)).toISOString();
 const rows = computeTimeline('100', [
   mk('a', 'win', '4', day(1)),
   mk('b', 'lose', '10', day(2), 'tilt?'),
@@ -53,5 +53,12 @@ describe('step 7 scenario (lib level)', () => {
     const last = (rs: Round[]) => computeTimeline('16.99', rs).at(-1)!.balanceAfter;
     expect(last([r('1', 'win'), r('2', 'lose'), r('3', 'win')])).toBe('21.23');
     expect(last([r('1', 'lose'), r('2', 'lose'), r('3', 'win')])).toBe('13.11');
+  });
+
+  it('from/to use Bangkok dates', () => {
+    const r = computeTimeline('100', [mk('x', 'win', '4', '2026-11-04T17:30:00Z')]);
+    const q = { ...DEFAULT_HISTORY_QUERY, from: '2026-11-05', to: '2026-11-05' };
+    expect(queryHistory(r, q)).toHaveLength(1);
+    expect(queryHistory(r, { ...q, from: '2026-11-04', to: '2026-11-04' })).toHaveLength(0);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createBackup, mergeSessions, parseBackup, sessionToJson } from '@/lib/io/backup';
 import type { Session } from '@/types';
+import { DEFAULT_GUARD } from '@/lib/calculations/guard';
 
 const mkSession = (id: string): Session => ({
   id, name: `S ${id}`, currency: 'USDT', initialBalance: '16.99', defaultBet: '4', defaultMultiplier: '2.03',
@@ -21,6 +22,30 @@ describe('backup', () => {
   it('keeps settings', () => {
     const p = parseBackup(JSON.stringify(createBackup([session], { precision: 4 })));
     expect(p.ok && p.backup.settings).toEqual({ precision: 4 });
+  });
+  it('parses M1 backups that have no guard anywhere', () => {
+    const b = JSON.parse(JSON.stringify(createBackup([session], { precision: 3 })));
+    expect(parseBackup(JSON.stringify(b)).ok).toBe(true);
+  });
+  it('round-trips session guard and settings.guard', () => {
+    const guarded: Session = { ...session, guard: { stopLoss: { kind: 'amount', value: '5' }, takeProfit: { kind: 'percent', value: '50' } } };
+    const g = { ...DEFAULT_GUARD, dailyLossLimit: '10' };
+    const p = parseBackup(JSON.stringify(createBackup([guarded], { precision: 2, guard: g })));
+    expect(p.ok && p.backup.sessions[0]!.guard).toEqual(guarded.guard);
+    expect(p.ok && p.backup.settings).toEqual({ precision: 2, guard: g });
+  });
+  it('rejects invalid session guard limits', () => {
+    for (const guard of [
+      { stopLoss: { kind: 'percent', value: '101' } },
+      { stopLoss: { kind: 'amount', value: '0' } },
+      { takeProfit: { kind: 'weird', value: '1' } },
+    ]) {
+      expect(parseBackup(JSON.stringify({ ...createBackup([session]), sessions: [{ ...session, guard }] })).ok).toBe(false);
+    }
+  });
+  it('rejects invalid settings.guard', () => {
+    const b = createBackup([session], { precision: 2, guard: { ...DEFAULT_GUARD, sizing: { mode: 'percent', percent: '0', minBet: '1' } } });
+    expect(parseBackup(JSON.stringify(b)).ok).toBe(false);
   });
   it('rejects bad input without throwing', () => {
     const b = createBackup([session]);
@@ -50,5 +75,13 @@ describe('mergeSessions', () => {
   });
   it('replace swaps everything', () => {
     expect(mergeSessions([a], [c], 'replace').sessions).toEqual([c]);
+  });
+
+  it('rejects lenient dates in backup', () => {
+    const bad = (v: string) => JSON.stringify({ ...createBackup([session]), exportedAt: v });
+    for (const v of ['1', '2026-11-04', 'Nov 4 2026', '2026-13-45T10:00:00Z', '2026-11-04T10:00:00']) {
+      expect(parseBackup(bad(v)).ok).toBe(false);
+    }
+    expect(parseBackup(bad('2026-11-04T10:00:00+07:00')).ok).toBe(true);
   });
 });

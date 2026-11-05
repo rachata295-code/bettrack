@@ -52,6 +52,43 @@ it('schema-invalid sessions set loadIssue too', async () => {
   expect(localStorage.getItem(KEY)).toBe(bad);
 });
 
+it('M1 data with loose-but-parseable dates loads (normalised to ISO) instead of hitting recovery (R11)', async () => {
+  const m1 = JSON.stringify({
+    state: {
+      sessions: [{
+        id: 's1', name: 'M1', currency: 'USDT', initialBalance: '16.99', defaultBet: '4', defaultMultiplier: '2.03',
+        rounds: [{ id: 'r1', result: 'win', bet: '4', multiplier: '2.03', createdAt: '2026-11-04 10:00:00' }],
+        tags: [], createdAt: '2026-11-04 09:00:00', updatedAt: '2026-11-04T10:00:00Z',
+      }],
+      activeSessionId: 's1',
+    },
+    version: 1,
+  });
+  localStorage.setItem(KEY, m1);
+  await useBetStore.persist.rehydrate();
+  expect(getLoadIssue()).toBeNull();
+  const s = useBetStore.getState().sessions[0]!;
+  expect(s.rounds[0]!.createdAt).toBe(new Date('2026-11-04 10:00:00').toISOString());
+  expect(s.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  expect(s.updatedAt).toBe('2026-11-04T10:00:00.000Z');
+});
+
+it('an unparseable stored date still goes to recovery', async () => {
+  const bad = JSON.stringify({
+    state: {
+      sessions: [{
+        id: 's1', name: 'M1', currency: 'USDT', initialBalance: '16.99', defaultBet: '4', defaultMultiplier: '2.03',
+        rounds: [], tags: [], createdAt: 'not a date', updatedAt: '2026-11-04T10:00:00Z',
+      }],
+      activeSessionId: 's1',
+    },
+    version: 1,
+  });
+  localStorage.setItem(KEY, bad);
+  await useBetStore.persist.rehydrate();
+  expect(getLoadIssue()).toMatchObject({ key: KEY, raw: bad });
+});
+
 it('clearLoadIssue re-enables writes', async () => {
   localStorage.setItem(KEY, '{broken');
   await useBetStore.persist.rehydrate();

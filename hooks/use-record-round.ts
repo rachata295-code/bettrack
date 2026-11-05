@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import type { RoundResult } from '@/types';
+import type { Round, RoundResult } from '@/types';
 import { formatMoney, negate } from '@/lib/calculations/money';
 import { BET_ERROR_MESSAGES, previewRound } from '@/lib/calculations/round';
 import { computeTimeline, currentBalance } from '@/lib/calculations/timeline';
@@ -14,7 +14,11 @@ const LOCK_MS = 300;
 export function useRecordRound(
   bet: string,
   multiplier: string,
-): { record: (result: RoundResult) => void; undo: () => void; locked: boolean } {
+): {
+  record: (result: RoundResult, input?: { bet: string; multiplier: string }) => Round | null;
+  undo: () => void;
+  locked: boolean;
+} {
   const [locked, setLocked] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -25,7 +29,8 @@ export function useRecordRound(
   );
 
   const record = useCallback(
-    (result: RoundResult) => {
+    // `input` lets a delayed (confirmed) record use the values captured at click time.
+    (result: RoundResult, input?: { bet: string; multiplier: string }): Round | null => {
       const { precision } = useSettingsStore.getState();
       const st = useBetStore.getState();
       const session = st.sessions.find(s => s.id === st.activeSessionId);
@@ -33,12 +38,12 @@ export function useRecordRound(
       const before = session
         ? currentBalance(session.initialBalance, computeTimeline(session.initialBalance, session.rounds))
         : '0';
-      const res = st.recordRound(result, bet, multiplier);
+      const res = st.recordRound(result, input?.bet ?? bet, input?.multiplier ?? multiplier);
       if (!res.ok) {
         // Duplicate (double-click / held key) is intentionally silent.
-        if (res.errors[0] === 'duplicate') return;
+        if (res.errors[0] === 'duplicate') return null;
         for (const err of res.errors as (keyof typeof BET_ERROR_MESSAGES)[]) toast.error(BET_ERROR_MESSAGES[err]);
-        return;
+        return null;
       }
       setLocked(true);
       timer.current = setTimeout(() => setLocked(false), LOCK_MS);
@@ -53,6 +58,8 @@ export function useRecordRound(
           `LOSE ${formatMoney(negate(p.lose.loss), { precision, signed: true })} → ${formatMoney(p.lose.newBalance, { precision })}`,
         );
       }
+      // Returned so guard checks (chasing, streak break) can run on what was actually saved.
+      return res.round;
     },
     [bet, multiplier],
   );

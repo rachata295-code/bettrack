@@ -1,14 +1,23 @@
 'use client';
 
 import Link from 'next/link';
+import { useMemo } from 'react';
 import { BalanceCard } from '@/components/dashboard/balance-card';
+import { PeriodSummary } from '@/components/dashboard/period-summary';
+import { BalanceChart } from '@/components/charts/balance-chart';
+import { GuardStatusCard } from '@/components/guard/guard-status-card';
 import { StatsGrid } from '@/components/dashboard/stats-grid';
 import { ResultButtons } from '@/components/calculator/result-buttons';
+import { GuardNotices } from '@/components/guard/guard-notices';
+import { LimitDialog } from '@/components/guard/limit-dialog';
+import { balanceSeries } from '@/lib/calculations/series';
 import { validateBetInput } from '@/lib/calculations/round';
 import { Button } from '@/components/ui/button';
 import { useDraft } from '@/hooks/use-draft';
-import { useRecordRound } from '@/hooks/use-record-round';
+import { useGuard } from '@/hooks/use-guard';
+import { useGuardedRecord } from '@/hooks/use-guarded-record';
 import { useTimeline } from '@/hooks/use-timeline';
+import { useBetStore } from '@/store/bet-store';
 import { useSettingsStore } from '@/store/settings-store';
 
 export default function DashboardPage() {
@@ -16,9 +25,15 @@ export default function DashboardPage() {
   const precision = useSettingsStore(s => s.precision);
   // Same per-session draft as the Calculator, so quick WIN/LOSE records what the user last set there.
   const { bet, multiplier } = useDraft(session.id);
-  const { record, undo, locked } = useRecordRound(bet, multiplier);
+  const { record, undo, locked, pending, confirm, cancel } = useGuardedRecord(bet, multiplier);
+  const sessions = useBetStore(s => s.sessions);
+  const guard = useGuard(bet);
+  const series = useMemo(
+    () => balanceSeries(session.initialBalance, timeline, precision),
+    [session.initialBalance, timeline, precision],
+  );
   const v = validateBetInput({ balance, bet, multiplier });
-  const canRecord = v.ok && !locked;
+  const canRecord = v.ok && !locked && guard.cooldownRemainingMs === 0 && !pending;
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 p-4 lg:p-8">
@@ -33,6 +48,10 @@ export default function DashboardPage() {
         hasInsufficient={timeline.some(r => r.insufficient)}
       />
       <section aria-label="Quick record" className="space-y-2">
+        {/* Keyed by session: the Dashboard is not remounted on switch, and a dismissal is per session. */}
+        <GuardNotices
+          key={session.id}
+          streakAlert={guard.streakAlert} lossStreak={guard.lossStreak} cooldownRemainingMs={guard.cooldownRemainingMs} />
         <ResultButtons onWin={() => canRecord && record('win')} onLose={() => canRecord && record('lose')} disabled={!canRecord} />
         <div className="flex items-center justify-between gap-2">
           <p className="num text-sm text-muted-foreground">
@@ -47,12 +66,37 @@ export default function DashboardPage() {
         </div>
         {!v.ok && <p className="text-sm text-loss">Bet is not valid for the current balance. Edit it in the Calculator.</p>}
       </section>
+      <PeriodSummary sessions={sessions} currency={session.currency} precision={precision} />
+      <GuardStatusCard guard={guard} precision={precision} currency={session.currency} />
+      <LimitDialog pending={pending} precision={precision} currency={session.currency} onConfirm={confirm} onCancel={cancel} />
       {timeline.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
           No rounds yet. Record your first round with WIN or LOSE above.
         </div>
       ) : (
-        <StatsGrid stats={stats} currency={session.currency} precision={precision} />
+        <>
+          <section aria-label="Balance chart" className="space-y-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold">Balance</h2>
+              <Link
+                href="/analytics"
+                className="text-sm underline underline-offset-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/60"
+              >
+                Open analytics
+              </Link>
+            </div>
+            {/* Start-balance reference stays on (fixed): it is the one line that tells up from down at a glance. */}
+            <BalanceChart
+              data={series}
+              initialBalance={series[0]?.balance ?? 0}
+              showReference
+              currency={session.currency}
+              precision={precision}
+              height={160}
+            />
+          </section>
+          <StatsGrid stats={stats} currency={session.currency} precision={precision} />
+        </>
       )}
     </div>
   );

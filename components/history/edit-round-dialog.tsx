@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { MultiplierChips } from '@/components/calculator/multiplier-chips';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { D, formatMoney, parseMoneyInput } from '@/lib/calculations/money';
+import { recentMultipliers } from '@/lib/calculations/multipliers';
 import { computeTimeline, currentBalance } from '@/lib/calculations/timeline';
 import { cn } from '@/lib/utils';
 import { useTimeline } from '@/hooks/use-timeline';
@@ -35,6 +37,11 @@ export function EditRoundDialog({ round, index, open, onOpenChange }: Props) {
 function EditForm({ round, index, onDone }: { round: Round; index: number; onDone: () => void }) {
   const { session, balance } = useTimeline();
   const precision = useSettingsStore(s => s.precision);
+  const sessions = useBetStore(s => s.sessions);
+  const chipOptions = useMemo(
+    () => recentMultipliers(sessions, { defaultMultiplier: session.defaultMultiplier }),
+    [sessions, session.defaultMultiplier],
+  );
   const [result, setResult] = useState<RoundResult>(round.result);
   const [bet, setBet] = useState(round.bet);
   const [multiplier, setMultiplier] = useState(round.multiplier);
@@ -68,7 +75,7 @@ function EditForm({ round, index, onDone }: { round: Round; index: number; onDon
 
   return (
     <form
-      className="grid gap-4"
+      className="grid grid-cols-[minmax(0,1fr)] gap-4"
       onSubmit={e => {
         e.preventDefault();
         save();
@@ -111,6 +118,8 @@ function EditForm({ round, index, onDone }: { round: Round; index: number; onDon
           {multError && <p id="edit-mult-err" className="text-xs text-loss">{multError}</p>}
         </div>
       </div>
+
+      <MultiplierChips value={multiplier} defaultMultiplier={session.defaultMultiplier} options={chipOptions} onPick={setMultiplier} />
 
       <div className="space-y-1.5">
         <Label htmlFor="edit-note">Note</Label>

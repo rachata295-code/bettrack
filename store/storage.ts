@@ -1,5 +1,6 @@
 import type { StateStorage } from 'zustand/middleware';
-import { SessionSchema } from '@/lib/io/backup';
+import { DEFAULT_GUARD, parseGuardSettings } from '@/lib/calculations/guard';
+import { StoredSessionSchema } from '@/lib/io/backup';
 
 export const BETS_KEY = 'bettrack:v1:bets';
 export const SETTINGS_KEY = 'bettrack:v1:settings';
@@ -77,11 +78,19 @@ function validate(name: string, raw: string): string | null {
   const state = (parsed as { state?: Record<string, unknown> } | null)?.state;
   if (!state || typeof state !== 'object') return null;
   if (name === BETS_KEY) {
-    return SessionSchema.array().safeParse(state.sessions).success ? raw : null;
+    // Lenient dates here (strict only for file import): normalised sessions replace the stored ones,
+    // so an M1 user's loosely formatted dates upgrade silently instead of triggering recovery.
+    const r = StoredSessionSchema.array().safeParse(state.sessions);
+    if (!r.success) return null;
+    return JSON.stringify({ ...(parsed as object), state: { ...state, sessions: r.data } });
   }
-  if (name === SETTINGS_KEY && !isValidPrecision(state.precision)) {
-    // A bad precision is harmless: fall back to the default rather than blocking the app.
-    return JSON.stringify({ ...(parsed as object), state: { ...state, precision: 2 } });
+  if (name === SETTINGS_KEY) {
+    // Bad precision or guard is harmless: fall back to defaults rather than blocking the app.
+    // A missing guard (v1 data) is left for the store's migrate to fill in.
+    const precision = isValidPrecision(state.precision) ? state.precision : 2;
+    const guard = state.guard === undefined ? undefined : (parseGuardSettings(state.guard) ?? DEFAULT_GUARD);
+    const next = { ...state, precision, ...(guard !== undefined ? { guard } : {}) };
+    return JSON.stringify({ ...(parsed as object), state: next });
   }
   return raw;
 }

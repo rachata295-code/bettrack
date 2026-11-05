@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { Currency, Round, RoundResult, Session } from '@/types';
+import type { Currency, Round, RoundResult, Session, SessionGuardLimits } from '@/types';
 import { CURRENCIES } from '@/types';
 import { D, parseMoneyInput } from '@/lib/calculations/money';
 import { validateBetInput, type BetInputError } from '@/lib/calculations/round';
 import { computeTimeline, currentBalance } from '@/lib/calculations/timeline';
+import { validateLimitValue } from '@/lib/calculations/guard';
 import { mergeSessions } from '@/lib/io/backup';
 import { newId } from '@/lib/id';
 import { BETS_KEY, safeStorage } from './storage';
@@ -14,7 +15,10 @@ const MAX_TAGS = 10;
 
 type SessionInput = Partial<
   Pick<Session, 'name' | 'currency' | 'initialBalance' | 'defaultBet' | 'defaultMultiplier' | 'tags'>
->;
+> & {
+  /** null removes the session's limits. */
+  guard?: SessionGuardLimits | null;
+};
 
 export type RecordResult = { ok: true; round: Round } | { ok: false; errors: BetInputError[] | ['duplicate'] };
 export type UndoResult =
@@ -38,6 +42,10 @@ interface BetState {
   lastRecordAt: number;
   lastUndoAt: number;
   drafts: Record<string, Draft>;
+  /** epoch ms until which a hard break lasts; null = none. */
+  cooldownUntil: number | null;
+  startCooldown: (minutes: number) => void;
+  clearCooldown: () => void;
   recordRound: (result: RoundResult, bet: string, multiplier: string) => RecordResult;
   undoLast: () => UndoResult;
   restoreRound: (sessionId: string, round: Round, index: number) => RestoreResult;
@@ -64,6 +72,7 @@ function makeSession(name: string, input: SessionInput = {}): Session {
     defaultMultiplier: input.defaultMultiplier ?? '2.03',
     rounds: [],
     tags: input.tags ?? [],
+    ...(input.guard ? { guard: input.guard } : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -101,12 +110,28 @@ function normalizeSessionPatch(patch: SessionInput): SessionInput | null {
     if (tags.length > MAX_TAGS) return null;
     out.tags = tags;
   }
+  if (patch.guard !== undefined) {
+    if (patch.guard === null) {
+      out.guard = null;
+    } else {
+      const g: SessionGuardLimits = {};
+      for (const k of ['stopLoss', 'takeProfit'] as const) {
+        const raw = patch.guard[k];
+        if (raw === undefined) continue;
+        const v = validateLimitValue(raw);
+        if (!v) return null;
+        g[k] = v;
+      }
+      // An empty object means "no limits": store nothing instead of {}.
+      out.guard = g.stopLoss || g.takeProfit ? g : null;
+    }
+  }
   return out;
 }
 
 const initialState = () => {
   const s = makeSession('Session 1');
-  return { sessions: [s], activeSessionId: s.id, lastRecordAt: 0, lastUndoAt: 0, drafts: {} as Record<string, Draft> };
+  return { sessions: [s], activeSessionId: s.id, lastRecordAt: 0, lastUndoAt: 0, drafts: {} as Record<string, Draft>, cooldownUntil: null as number | null };
 };
 
 /** The Calculator/Dashboard inputs for a session: the saved draft, else the session defaults. */
@@ -257,7 +282,15 @@ export const useBetStore = create<BetState>()(
         updateSession: (id, patch) => {
           const norm = normalizeSessionPatch(patch);
           if (!norm) return { ok: false };
-          return { ok: mutate(id, s => ({ ...s, ...norm })) };
+          const { guard, ...rest } = norm;
+          return {
+            ok: mutate(id, s => {
+              const next: Session = { ...s, ...rest };
+              if (guard === null) delete next.guard;
+              else if (guard) next.guard = guard;
+              return next;
+            }),
+          };
         },
 
         deleteSession: id => {
@@ -296,6 +329,12 @@ export const useBetStore = create<BetState>()(
         },
 
         resetAll: () => set(initialState()),
+
+        startCooldown: minutes => {
+          if (!Number.isFinite(minutes) || minutes <= 0) return;
+          set({ cooldownUntil: Date.now() + minutes * 60_000 });
+        },
+        clearCooldown: () => set({ cooldownUntil: null }),
       };
     },
     {
@@ -303,7 +342,7 @@ export const useBetStore = create<BetState>()(
       version: 1,
       storage: createJSONStorage(() => safeStorage),
       skipHydration: false,
-      partialize: s => ({ sessions: s.sessions, activeSessionId: s.activeSessionId, drafts: s.drafts }),
+      partialize: s => ({ sessions: s.sessions, activeSessionId: s.activeSessionId, drafts: s.drafts, cooldownUntil: s.cooldownUntil }),
       migrate: persisted => persisted as BetState,
       // Repair a dangling activeSessionId / empty list so the UI never sees an invalid state.
       merge: (persisted, current) => {
@@ -312,7 +351,10 @@ export const useBetStore = create<BetState>()(
         const activeSessionId = p.sessions.some(s => s.id === p.activeSessionId)
           ? (p.activeSessionId as string)
           : p.sessions[p.sessions.length - 1]!.id;
-        return { ...current, sessions: p.sessions, activeSessionId, drafts: sanitizeDrafts(p.drafts, p.sessions) };
+        return { ...current, sessions: p.sessions, activeSessionId, drafts: sanitizeDrafts(p.drafts, p.sessions),
+          // Lenient: a bad value just means no active break.
+          cooldownUntil: typeof p.cooldownUntil === 'number' && Number.isFinite(p.cooldownUntil) ? p.cooldownUntil : null,
+        };
       },
     },
   ),

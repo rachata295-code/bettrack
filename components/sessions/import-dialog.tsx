@@ -55,7 +55,11 @@ function ImportBody({ onDone }: { onDone: () => void }) {
     try {
       const { added, skipped } = useBetStore.getState().importSessions(backup.sessions, mode);
       // Backups carry precision as a display preference; restoring it keeps "same as before" true after Replace.
-      if (mode === 'replace' && backup.settings) useSettingsStore.getState().setPrecision(backup.settings.precision);
+      if (mode === 'replace' && backup.settings) {
+        useSettingsStore.getState().setPrecision(backup.settings.precision);
+        // Older (M1) backups carry no guard: keep the user's current guard rather than resetting it.
+        if (backup.settings.guard) useSettingsStore.getState().setGuard({ ...backup.settings.guard, dailyLossLimit: backup.settings.guard.dailyLossLimit });  // explicit key so a missing limit clears the old one
+      }
       toast.success(`Imported ${added} sessions (${skipped} skipped)`);
       onDone();
     } catch {

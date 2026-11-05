@@ -20,6 +20,10 @@ interface Props {
 }
 
 const CURRENCY_ITEMS = CURRENCIES.map(c => ({ value: c, label: c }));
+const KIND_ITEMS = [
+  { value: 'amount', label: 'Amount' },
+  { value: 'percent', label: '% of initial balance' },
+];
 
 export function SessionFormDialog({ mode, session, open, onOpenChange }: Props) {
   return (
@@ -40,6 +44,10 @@ function SessionForm({ mode, session, onDone }: { mode: 'create' | 'edit'; sessi
     defaultBet: session?.defaultBet ?? '4',
     defaultMultiplier: session?.defaultMultiplier ?? '2.03',
     tags: session?.tags.join(', ') ?? '',
+    stopLossValue: session?.guard?.stopLoss?.value ?? '',
+    stopLossKind: session?.guard?.stopLoss?.kind ?? 'amount',
+    takeProfitValue: session?.guard?.takeProfit?.value ?? '',
+    takeProfitKind: session?.guard?.takeProfit?.kind ?? 'amount',
   });
   const [submitted, setSubmitted] = useState(false);
 
@@ -87,6 +95,23 @@ function SessionForm({ mode, session, onDone }: { mode: 'create' | 'edit'; sessi
     autoComplete: 'off',
   });
 
+  const limitRow = (id: string, label: string, valueField: 'stopLossValue' | 'takeProfitValue', kindField: 'stopLossKind' | 'takeProfitKind') => (
+    <div className="grid grid-cols-[1fr_1.4fr] items-start gap-3" key={id}>
+      {field(valueField, label, (
+        <Input {...common(valueField)} inputMode="decimal" value={form[valueField]} placeholder="Off" onChange={e => set(valueField, e.target.value)} />
+      ))}
+      <div className="space-y-1.5">
+        <Label htmlFor={`sf-${kindField}`}>{label} type</Label>
+        <Select items={KIND_ITEMS} value={form[kindField]} onValueChange={v => v && set(kindField, v as SessionFormInput[typeof kindField])}>
+          <SelectTrigger id={`sf-${kindField}`} className="w-full" aria-label={`${label} type`}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {KIND_ITEMS.map(i => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+
   return (
     <form className="grid gap-4" noValidate onSubmit={e => { e.preventDefault(); submit(); }}>
       <DialogHeader>
@@ -132,6 +157,13 @@ function SessionForm({ mode, session, onDone }: { mode: 'create' | 'edit'; sessi
       {field('tags', `Tags (comma-separated, max ${MAX_TAGS})`, (
         <Input {...common('tags')} value={form.tags} onChange={e => set('tags', e.target.value)} placeholder="e.g. dice, low-risk" />
       ))}
+
+      <fieldset className="grid gap-3">
+        <legend className="mb-1 text-sm font-medium">Session limits (optional)</legend>
+        <p className="text-xs text-muted-foreground">Leave a field empty to turn that limit off. Limits only warn you; they never change a bet.</p>
+        {limitRow('stopLoss', 'Stop-loss', 'stopLossValue', 'stopLossKind')}
+        {limitRow('takeProfit', 'Take-profit', 'takeProfitValue', 'takeProfitKind')}
+      </fieldset>
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDone}>Cancel</Button>

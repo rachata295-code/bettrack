@@ -2,7 +2,7 @@ import type { Session } from '@/types';
 import type { TimelineRow } from '@/lib/calculations/timeline';
 
 // RFC 4180: quote fields containing comma, quote or line break; double embedded quotes.
-function field(value: string): string {
+export function field(value: string): string {
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 

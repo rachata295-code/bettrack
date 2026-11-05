@@ -3,6 +3,7 @@ import { validateSessionForm, type SessionFormInput } from '@/lib/session-form';
 
 const base: SessionFormInput = {
   name: ' Main ', currency: 'USDT', initialBalance: ' 16.99 ', defaultBet: '4', defaultMultiplier: '2.03', tags: 'a, b ,a,,c',
+  stopLossValue: '', stopLossKind: 'amount', takeProfitValue: '', takeProfitKind: 'amount',
 };
 
 describe('validateSessionForm', () => {
@@ -10,7 +11,7 @@ describe('validateSessionForm', () => {
     const r = validateSessionForm(base);
     expect(r).toEqual({
       ok: true,
-      value: { name: 'Main', currency: 'USDT', initialBalance: '16.99', defaultBet: '4', defaultMultiplier: '2.03', tags: ['a', 'b', 'c'] },
+      value: { name: 'Main', currency: 'USDT', initialBalance: '16.99', defaultBet: '4', defaultMultiplier: '2.03', tags: ['a', 'b', 'c'], guard: null },
     });
   });
   it('accepts initial balance 0', () => expect(validateSessionForm({ ...base, initialBalance: '0' }).ok).toBe(true));
@@ -47,5 +48,28 @@ describe('validateSessionForm', () => {
   it('reports multiple errors at once', () => {
     const r = validateSessionForm({ ...base, name: '', defaultBet: '0' });
     expect(!r.ok && Object.keys(r.errors).sort()).toEqual(['defaultBet', 'name']);
+  });
+  describe('stop-loss / take-profit', () => {
+    it('builds guard from filled fields and trims', () => {
+      const r = validateSessionForm({ ...base, stopLossValue: ' 5 ', stopLossKind: 'amount', takeProfitValue: '50', takeProfitKind: 'percent' });
+      expect(r.ok && r.value.guard).toEqual({ stopLoss: { kind: 'amount', value: '5' }, takeProfit: { kind: 'percent', value: '50' } });
+    });
+    it('supports only one limit', () => {
+      const r = validateSessionForm({ ...base, takeProfitValue: '3' });
+      expect(r.ok && r.value.guard).toEqual({ takeProfit: { kind: 'amount', value: '3' } });
+    });
+    it('treats blank fields as off', () => {
+      const r = validateSessionForm({ ...base, stopLossValue: '   ' });
+      expect(r.ok && r.value.guard).toBeNull();
+    });
+    it.each(['0', '-1', 'abc', '1e2'])('rejects stop-loss %j', v => {
+      const r = validateSessionForm({ ...base, stopLossValue: v });
+      expect(!r.ok && r.errors.stopLossValue).toBeTruthy();
+    });
+    it('rejects percent over 100 but allows amount over 100', () => {
+      const bad = validateSessionForm({ ...base, takeProfitValue: '101', takeProfitKind: 'percent' });
+      expect(!bad.ok && bad.errors.takeProfitValue).toBeTruthy();
+      expect(validateSessionForm({ ...base, takeProfitValue: '101', takeProfitKind: 'amount' }).ok).toBe(true);
+    });
   });
 });

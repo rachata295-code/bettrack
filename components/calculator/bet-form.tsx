@@ -1,6 +1,6 @@
 'use client';
 
-import type { Ref } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatMoney } from '@/lib/calculations/money';
@@ -18,9 +18,11 @@ interface BetFormProps {
   precision: number;
   betRef: Ref<HTMLInputElement>;
   multiplierRef: Ref<HTMLInputElement>;
+  /** Shown right under the Bet input (e.g. the guard's risk badge). */
+  betAdornment?: ReactNode;
 }
 
-export function BetForm({ betRef, multiplierRef, ...p }: BetFormProps) {
+export function BetForm({ betRef, multiplierRef, betAdornment, ...p }: BetFormProps) {
   return (
     <div className="space-y-4">
       <div>
@@ -38,6 +40,7 @@ export function BetForm({ betRef, multiplierRef, ...p }: BetFormProps) {
           onChange={p.onBetChange}
           errors={p.betError}
           inputRef={betRef}
+          adornment={betAdornment}
         />
         <Field
           id="multiplier"
@@ -59,6 +62,7 @@ function Field({
   onChange,
   errors,
   inputRef,
+  adornment,
 }: {
   id: string;
   label: string;
@@ -66,6 +70,7 @@ function Field({
   onChange: (v: string) => void;
   errors?: string[];
   inputRef: Ref<HTMLInputElement>;
+  adornment?: ReactNode;
 }) {
   const invalid = !!errors?.length;
   return (
@@ -82,6 +87,8 @@ function Field({
         aria-describedby={invalid ? `${id}-error` : undefined}
         className="num h-12 text-lg md:text-lg"
       />
+      {/* Under the input (not beside the label) so both inputs stay aligned on narrow phones. */}
+      {adornment && <div>{adornment}</div>}
       {errors && errors.length > 0 && (
         <div id={`${id}-error`} role="alert" className="space-y-0.5 text-sm text-loss">
           {errors.map(m => (
