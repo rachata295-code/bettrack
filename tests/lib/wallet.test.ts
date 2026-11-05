@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { onPlatformBalance, realPnl, validateTransaction, walletByBucket } from '@/lib/calculations/wallet';
+import { onPlatformBalance, realPnl, sessionOnPlatform, validateTransaction, walletByBucket } from '@/lib/calculations/wallet';
 import type { Currency, Session, Transaction } from '@/types';
 
 const tx = (type: 'deposit' | 'withdraw', amount: string, fee = '0', currency: Currency = 'USDT'): Transaction => ({
@@ -43,6 +43,19 @@ describe('onPlatformBalance', () => {
   });
   it('is zero with no sessions', () => {
     expect(onPlatformBalance([], 'USDT', {})).toEqual({ value: '0' });
+  });
+});
+
+describe('sessionOnPlatform', () => {
+  // R18: users open a new session each day carrying the balance, so only one session counts.
+  it('is the current balance of that one session', () => {
+    expect(sessionOnPlatform(sess('USDT', '10', '5'), 'USDT', {})).toEqual({ value: '15' });
+  });
+  it('converts to the summary currency', () => {
+    expect(sessionOnPlatform(sess('THB', '350'), 'USDT', { usdtThb: '35' })).toEqual({ value: '10' });
+  });
+  it('reports the missing rate', () => {
+    expect(sessionOnPlatform(sess('THB', '350'), 'USDT', {})).toEqual({ missingRates: ['THB'] });
   });
 });
 

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { approxThbLabel } from '@/lib/calculations/fx';
 import { formatMoney, parseMoneyInput } from '@/lib/calculations/money';
-import { onPlatformBalance, realPnl } from '@/lib/calculations/wallet';
+import { onPlatformBalance, realPnl, sessionOnPlatform } from '@/lib/calculations/wallet';
 import { cn } from '@/lib/utils';
 import { useBetStore } from '@/store/bet-store';
 import { useSettingsStore } from '@/store/settings-store';
@@ -15,7 +15,10 @@ import { useWalletStore } from '@/store/wallet-store';
 import { CURRENCIES, type Currency } from '@/types';
 
 const CURRENCY_ITEMS = CURRENCIES.map(c => ({ value: c, label: c }));
+type Source = 'active' | 'sessions' | 'manual';
+// Default is the active session only (R18): summing every session double-counts carried-over balances.
 const SOURCE_ITEMS = [
+  { value: 'active', label: 'Active session' },
   { value: 'sessions', label: 'All sessions (converted)' },
   { value: 'manual', label: 'Enter manually' },
 ];
@@ -38,14 +41,21 @@ export function RealPnlCard() {
 
   // Summary currency defaults to the active session's; null = user has not picked one.
   const [picked, setPicked] = useState<Currency | null>(null);
-  const [source, setSource] = useState<'sessions' | 'manual'>('sessions');
+  const [source, setSource] = useState<Source>('active');
   const [manual, setManual] = useState('');
-  const currency: Currency = picked ?? sessions.find(s => s.id === activeId)?.currency ?? 'USDT';
+  const active = sessions.find(s => s.id === activeId);
+  const currency: Currency = picked ?? active?.currency ?? 'USDT';
 
   let onPlatform: string | null = null;
   let missing: Currency[] = [];
   let manualError: string | null = null;
-  if (source === 'sessions') {
+  if (source === 'active') {
+    if (active) {
+      const r = sessionOnPlatform(active, currency, fx);
+      if ('missingRates' in r) missing = r.missingRates;
+      else onPlatform = r.value;
+    }
+  } else if (source === 'sessions') {
     const r = onPlatformBalance(sessions, currency, fx);
     if ('missingRates' in r) missing = r.missingRates;
     else onPlatform = r.value;
@@ -82,12 +92,20 @@ export function RealPnlCard() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="pnl-source">On platform</Label>
-          <Select items={SOURCE_ITEMS} value={source} onValueChange={v => v && setSource(v as 'sessions' | 'manual')}>
+          <Select items={SOURCE_ITEMS} value={source} onValueChange={v => v && setSource(v as Source)}>
             <SelectTrigger id="pnl-source" className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>{SOURCE_ITEMS.map(i => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       </div>
+      {source === 'active' && (
+        <p className="text-xs text-muted-foreground">
+          {active ? <>On platform: <span className="font-medium">{active.name}</span> balance</> : 'No active session. Pick another source.'}
+        </p>
+      )}
+      {source === 'sessions' && (
+        <p className="text-xs text-muted-foreground">Adds every session&apos;s balance. Use only if each session is a separate pot of money.</p>
+      )}
       {source === 'manual' && (
         <div className="space-y-1.5">
           <Label htmlFor="pnl-manual">Balance on platform ({currency})</Label>

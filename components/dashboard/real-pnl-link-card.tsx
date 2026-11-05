@@ -3,22 +3,24 @@
 import Link from 'next/link';
 import { approxThbLabel } from '@/lib/calculations/fx';
 import { formatMoney } from '@/lib/calculations/money';
-import { onPlatformBalance, realPnl } from '@/lib/calculations/wallet';
+import { realPnl, sessionOnPlatform } from '@/lib/calculations/wallet';
 import { cn } from '@/lib/utils';
-import { useBetStore } from '@/store/bet-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useWalletStore } from '@/store/wallet-store';
-import type { Currency } from '@/types';
+import type { Session } from '@/types';
 
-/** Compact Real P&L on the Dashboard; renders only once the user has recorded a transaction. All math lives in lib. */
-export function RealPnlLinkCard({ currency }: { currency: Currency }) {
+/**
+ * Compact Real P&L on the Dashboard; renders only once the user has recorded a transaction. All math lives in lib.
+ * On-platform = the active session's balance only (R18), so carried-over balances are not double-counted.
+ */
+export function RealPnlLinkCard({ session }: { session: Session }) {
   const transactions = useWalletStore(s => s.transactions);
-  const sessions = useBetStore(s => s.sessions);
+  const currency = session.currency;
   const fx = useSettingsStore(s => s.fx);
   const precision = useSettingsStore(s => s.precision);
   if (transactions.length === 0) return null;
 
-  const platform = onPlatformBalance(sessions, currency, fx);
+  const platform = sessionOnPlatform(session, currency, fx);
   const result = 'value' in platform ? realPnl({ transactions, onPlatform: platform.value, currency, fx }) : platform;
   const net = 'missingRates' in result ? null : formatMoney(result.net, { precision, currency, signed: true });
   const approx = 'missingRates' in result ? null : approxThbLabel(result.net, currency, fx, precision, { signed: true });
@@ -37,6 +39,7 @@ export function RealPnlLinkCard({ currency }: { currency: Currency }) {
             {net}
           </p>
           {approx && <p className="num text-sm text-muted-foreground">{approx}</p>}
+          <p className="text-xs text-muted-foreground">On platform: {session.name} balance</p>
           <p className="text-xs text-muted-foreground">Withdrawals − deposits − fees + balance on platform.</p>
         </>
       ) : (

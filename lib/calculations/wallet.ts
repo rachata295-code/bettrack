@@ -58,7 +58,21 @@ export function validateTransaction(
 
 const sortedUnique = (list: Currency[]): Currency[] => [...new Set(list)].sort();
 
-/** Sum of every session's current balance, converted to `currency`. */
+/**
+ * Current balance of ONE session, converted to `currency` (R18). Default on-platform source:
+ * users carry the balance into a new session each day, so summing sessions double-counts.
+ */
+export function sessionOnPlatform(
+  session: Session,
+  currency: Currency,
+  fx: FxRates,
+): { value: Money } | { missingRates: Currency[] } {
+  const bal = currentBalance(session.initialBalance, computeTimeline(session.initialBalance, session.rounds));
+  const c = convert(bal, session.currency, currency, fx);
+  return c === null ? { missingRates: [session.currency] } : { value: c };
+}
+
+/** Sum of every session's current balance, converted to `currency` (opt-in "All sessions" source). */
 export function onPlatformBalance(
   sessions: readonly Session[],
   currency: Currency,

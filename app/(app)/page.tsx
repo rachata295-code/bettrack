@@ -71,7 +71,7 @@ export default function DashboardPage() {
         {!v.ok && <p className="text-sm text-loss">Bet is not valid for the current balance. Edit it in the Calculator.</p>}
       </section>
       <PeriodSummary sessions={sessions} currency={session.currency} precision={precision} />
-      <RealPnlLinkCard currency={session.currency} />
+      <RealPnlLinkCard session={session} />
       <GuardStatusCard guard={guard} precision={precision} currency={session.currency} />
       <LimitDialog pending={pending} precision={precision} currency={session.currency} onConfirm={confirm} onCancel={cancel} />
       {timeline.length === 0 ? (
