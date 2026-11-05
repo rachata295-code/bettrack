@@ -3,9 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GuardNotices } from '@/components/guard/guard-notices';
 import { DEFAULT_GUARD } from '@/lib/calculations/guard';
 import { useGuard } from '@/hooks/use-guard';
-import { useGuardedRecord } from '@/hooks/use-guarded-record';
+import { CHASING_MESSAGE, useGuardedRecord } from '@/hooks/use-guarded-record';
 import { useBetStore } from '@/store/bet-store';
 import { useSettingsStore } from '@/store/settings-store';
+
+// Sonner is mocked so the chasing warning can be asserted without rendering a Toaster.
+const toastMock = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), warning: vi.fn() }));
+vi.mock('sonner', () => ({ toast: toastMock }));
 
 const active = () => {
   const st = useBetStore.getState();
@@ -23,7 +27,15 @@ beforeEach(() => {
   useBetStore.getState().recordRound('lose', '4', '2');
   vi.advanceTimersByTime(1000);
 });
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.clearAllMocks();
+});
+
+/** Remove the beforeEach stop-loss so records save directly instead of asking for confirmation. */
+const clearLimits = () => useBetStore.getState().updateSession(active().id, { guard: {} });
+const setGuard = (patch: Partial<typeof DEFAULT_GUARD>) =>
+  useSettingsStore.setState({ guard: { ...DEFAULT_GUARD, ...patch } });
 
 describe('useGuardedRecord', () => {
   it('confirm records the bet/multiplier captured at click time', () => {
@@ -46,6 +58,76 @@ describe('useGuardedRecord', () => {
     expect(result.current.pending).toBeNull();
     act(() => result.current.confirm());
     expect(active().rounds).toHaveLength(0);
+  });
+});
+
+describe('useGuardedRecord guard rules', () => {
+  it('record() is blocked while a break is running', () => {
+    clearLimits();
+    act(() => useBetStore.getState().startCooldown(1));
+    const { result } = renderHook(() => useGuardedRecord('1', '2'));
+    act(() => result.current.record('win'));
+    expect(result.current.pending).toBeNull();
+    expect(active().rounds).toHaveLength(1);
+  });
+
+  it('hard mode starts a break when the n-th consecutive LOSE is saved', () => {
+    clearLimits();
+    setGuard({ lossStreak: { enabled: true, n: 3, mode: 'hard', cooldownMin: 5 } });
+    const { result } = renderHook(() => useGuardedRecord('1', '2'));
+    act(() => result.current.record('lose')); // 2nd loss in a row
+    expect(useBetStore.getState().cooldownUntil).toBeNull();
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => result.current.record('lose')); // 3rd loss in a row
+    expect(useBetStore.getState().cooldownUntil).toBe(Date.now() + 5 * 60_000);
+  });
+
+  it('soft mode never starts a break', () => {
+    clearLimits();
+    setGuard({ lossStreak: { enabled: true, n: 3, mode: 'soft', cooldownMin: 5 } });
+    const { result } = renderHook(() => useGuardedRecord('1', '2'));
+    act(() => result.current.record('lose'));
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => result.current.record('lose'));
+    expect(active().rounds).toHaveLength(3);
+    expect(useBetStore.getState().cooldownUntil).toBeNull();
+  });
+
+  it('warns about chasing when the bet is raised right after a loss', () => {
+    clearLimits();
+    const { result } = renderHook(() => useGuardedRecord('5', '2')); // last round: LOSE at 4
+    act(() => result.current.record('win'));
+    expect(toastMock.warning).toHaveBeenCalledWith(CHASING_MESSAGE);
+  });
+
+  it('no chasing warning when chasingAlert is off', () => {
+    clearLimits();
+    setGuard({ chasingAlert: false });
+    const { result } = renderHook(() => useGuardedRecord('5', '2'));
+    act(() => result.current.record('win'));
+    expect(active().rounds).toHaveLength(2);
+    expect(toastMock.warning).not.toHaveBeenCalled();
+  });
+
+  it('cancel() closes the confirmation and records nothing', () => {
+    const { result } = renderHook(() => useGuardedRecord('1', '2'));
+    act(() => result.current.record('win'));
+    expect(result.current.pending).not.toBeNull();
+    act(() => result.current.cancel());
+    expect(result.current.pending).toBeNull();
+    act(() => vi.advanceTimersByTime(1000));
+    expect(active().rounds).toHaveLength(1);
+  });
+});
+
+describe('useGuard daily figures', () => {
+  it('daily loss progress resets at Bangkok midnight on a page left open', () => {
+    setGuard({ dailyLossLimit: '10' });
+    const { result } = renderHook(() => useGuard('1'));
+    const daily = () => result.current.progress.find(p => p.hit === 'daily_loss');
+    expect(daily()?.used).toBe('4'); // the 05:00Z (12:00 Bangkok) loss
+    act(() => vi.advanceTimersByTime(12 * 3_600_000)); // 17:00:01Z = 00:00:01 Bangkok next day
+    expect(daily()?.used).toBe('0');
   });
 });
 
