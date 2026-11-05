@@ -91,7 +91,7 @@ export default function SettingsPage() {
         <h2 id="set-fx" className="text-lg font-medium">Exchange rates &amp; fees</h2>
         {/* key re-mounts the form when settings change elsewhere (e.g. a backup import). */}
         <FxFeesForm key={JSON.stringify({ fx, fees })} />
-        <WithdrawalCalculator />
+        <WithdrawalCalculator inSettings />
       </section>
 
       <section className="max-w-md space-y-3" aria-labelledby="set-reality">

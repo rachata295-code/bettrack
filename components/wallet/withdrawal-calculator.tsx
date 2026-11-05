@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,7 +15,8 @@ const ITEMS = [
   { value: 'USD', label: 'USD' },
 ];
 
-export function WithdrawalCalculator() {
+/** `inSettings`: rendered under the rate fields, so "above" makes sense; elsewhere link to Settings. */
+export function WithdrawalCalculator({ inSettings = false }: { inSettings?: boolean }) {
   const fx = useSettingsStore(s => s.fx);
   const fees = useSettingsStore(s => s.fees);
   const precision = useSettingsStore(s => s.precision);
@@ -24,7 +26,7 @@ export function WithdrawalCalculator() {
   const rate = rateToThb(currency, fx);
   const parsed = parseMoneyInput(amount);
   const valid = parsed.ok && isPositive(parsed.value);
-  const result = valid && rate !== null ? netBankWithdrawal(parsed.value, rate, fees) : null;
+  const result = valid && rate !== null ? netBankWithdrawal(parsed.value, rate, fees, currency) : null;
 
   return (
     <div className="space-y-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
@@ -42,7 +44,15 @@ export function WithdrawalCalculator() {
           </Select>
         </div>
       </div>
-      {rate === null && <p className="text-sm text-muted-foreground">Set an exchange rate above.</p>}
+      {rate === null && (
+        <p className="text-sm text-muted-foreground">
+          {inSettings ? (
+            <>Set a {currency}/THB exchange rate above.</>
+          ) : (
+            <>Set a {currency}/THB exchange rate in <Link href="/settings" className="underline underline-offset-2">Settings</Link>.</>
+          )}
+        </p>
+      )}
       {amount.trim() !== '' && !valid && <p className="text-sm text-loss">Enter an amount greater than 0.</p>}
       {result && (
         <div className="space-y-2" aria-live="polite">
@@ -50,7 +60,7 @@ export function WithdrawalCalculator() {
             {result.steps.map(s => (
               <li key={s.label} className="flex justify-between gap-3">
                 <span className="text-muted-foreground">{s.label}</span>
-                <span className="num">{formatMoney(s.value, { precision })}</span>
+                <span className="num">{formatMoney(s.value, { precision, currency: s.currency })}</span>
               </li>
             ))}
           </ol>

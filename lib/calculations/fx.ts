@@ -88,6 +88,8 @@ export function sanitizeFees(raw: unknown): FeeSettings {
 export interface WithdrawalStep {
   label: string;
   value: Money;
+  /** Currency of `value`: the withdrawn currency before conversion, THB after. */
+  currency: Currency;
 }
 
 /**
@@ -98,6 +100,7 @@ export function netBankWithdrawal(
   amount: Money,
   rate: Money,
   fees: FeeSettings,
+  currency: Currency,
 ): { steps: WithdrawalStep[]; net: Money; clampedToZero: boolean } {
   const afterCrypto = D(amount).minus(fees.cryptoWithdrawFee);
   const converted = afterCrypto.mul(rate);
@@ -107,11 +110,11 @@ export function netBankWithdrawal(
   const clampedToZero = afterThb.isNegative();
   return {
     steps: [
-      { label: 'After crypto withdrawal fee', value: afterCrypto.toString() },
-      { label: 'Converted at rate', value: converted.toString() },
-      { label: 'After spread', value: afterSpread.toString() },
-      { label: 'After trading fee', value: afterTrade.toString() },
-      { label: 'After THB withdrawal fee', value: afterThb.toString() },
+      { label: 'After crypto withdrawal fee', value: afterCrypto.toString(), currency },
+      { label: 'Converted at rate', value: converted.toString(), currency: 'THB' },
+      { label: 'After spread', value: afterSpread.toString(), currency: 'THB' },
+      { label: 'After trading fee', value: afterTrade.toString(), currency: 'THB' },
+      { label: 'After THB withdrawal fee', value: afterThb.toString(), currency: 'THB' },
     ],
     net: clampedToZero ? '0' : afterThb.toString(),
     clampedToZero,

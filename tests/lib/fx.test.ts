@@ -7,7 +7,7 @@ const fees = { cryptoWithdrawFee: '1', tradeFeePct: '0.1', spreadPct: '0.5', thb
 
 describe('netBankWithdrawal', () => {
   it('applies fees in order, unrounded', () => {
-    const r = netBankWithdrawal('100', '35', fees);
+    const r = netBankWithdrawal('100', '35', fees, 'USDT');
     expect(r.net).toBe('3424.227325');
     expect(r.clampedToZero).toBe(false);
     expect(r.steps.map(s => s.label)).toEqual([
@@ -15,8 +15,11 @@ describe('netBankWithdrawal', () => {
     ]);
     expect(r.steps.map(s => s.value)).toEqual(['99', '3465', '3447.675', '3444.227325', '3424.227325']);
   });
+  it('labels each step with its currency: first the withdrawn one, then THB', () => {
+    expect(netBankWithdrawal('100', '35', fees, 'USD').steps.map(s => s.currency)).toEqual(['USD', 'THB', 'THB', 'THB', 'THB']);
+  });
   it('clamps to zero', () => {
-    expect(netBankWithdrawal('1', '35', { ...fees, tradeFeePct: '0', spreadPct: '0' })).toMatchObject({ net: '0', clampedToZero: true });
+    expect(netBankWithdrawal('1', '35', { ...fees, tradeFeePct: '0', spreadPct: '0' }, 'USDT')).toMatchObject({ net: '0', clampedToZero: true });
   });
 });
 
