@@ -23,7 +23,7 @@ Repository: <https://github.com/rachata295-code/bettrack>
 - Dashboard: current balance, net P&L, ROI, highest/lowest, quick WIN/LOSE buttons, compact balance chart, Today / This week P&L (all sessions of the current currency), Bankroll Guard status and session statistics
 - Calculator: live preview of win/lose outcome, input validation, double-press protection, undo/redo
 - Keyboard shortcuts: `W`, `L`, `U`, `B`, `M`, `?`
-- History: search, sort, edit, delete, undo, CSV export; rows whose bet exceeded the balance at that time are flagged
+- History: search, sort, edit, delete, undo, CSV export; rows whose bet exceeded the balance at that time are flagged. Date filters use Bangkok time (`Asia/Bangkok`)
 - Sessions: create, rename, switch, delete; JSON backup export and import
 - Settings: display precision (0 to 8 decimals) and data management
 - Money is handled as decimal strings (decimal.js), never floating point; rounding only happens when displaying
@@ -41,7 +41,7 @@ Guard is a set of warnings and suggestions about your own bankroll, configured i
 ### Analytics
 
 - Balance chart per session with a start-balance reference line
-- Risk tools: drawdown and bet-size views of your own records
+- Risk tools (math aids, not predictions): break-even win rate for your multiplier; expected value per round and the chance of at least one win in k rounds, both computed at *your own* win-probability estimate; and a break-even calculator showing how many winning rounds would recover a loss. Recovering a loss is never guaranteed
 - Daily, weekly and monthly breakdowns with previous-period comparison. Periods use Bangkok time (`Asia/Bangkok`), weeks start on Monday, and sessions of different currencies are never mixed
 - Calendar heatmap of daily P&L, with a day detail sheet
 - CSV export of period summaries

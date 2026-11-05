@@ -167,7 +167,7 @@ export function GuardSettingsForm() {
         <legend className="mb-1 text-sm font-medium">Limits and alerts</legend>
         {field('dailyLossLimit', 'gs-daily', 'Daily loss limit (optional)', (
           <Input {...common('dailyLossLimit', 'gs-daily')} inputMode="decimal" placeholder="Off" value={form.dailyLossLimit} onChange={e => set('dailyLossLimit', e.target.value)} />
-        ), 'Counts today’s net loss across sessions of the same currency. Empty = off.')}
+        ), 'Applies to each currency separately (same amount). Counts today’s net loss across sessions of that currency. Empty = off.')}
         {check('gs-chasing', 'Alert when I raise my bet right after a loss', form.chasingAlert, v => set('chasingAlert', v))}
       </fieldset>
 
