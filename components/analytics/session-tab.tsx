@@ -51,7 +51,9 @@ export function SessionTab() {
           <StatsGrid stats={stats} currency={session.currency} precision={precision} />
         </>
       )}
+      {/* Keyed so typed estimates and loss overrides reset when switching sessions. */}
       <RiskTools
+        key={session.id}
         currency={session.currency}
         precision={precision}
         bet={bet}

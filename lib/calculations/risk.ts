@@ -25,6 +25,16 @@ export function probAtLeastOneWin(p: string, k: number): string {
   return D('1').minus(D('1').minus(p).pow(k)).toString();
 }
 
+/** Same as probAtLeastOneWin but as an unrounded percent string, so components only format it. */
+export function probAtLeastOneWinPct(p: string, k: number): string {
+  return D(probAtLeastOneWin(p, k)).mul(100).toString();
+}
+
+/** Multiplier sanity check for the risk tools: a win must return more than the bet. */
+export function isAboveOne(value: string): boolean {
+  return D(value).gt(1);
+}
+
 /** Rounds of winning needed to recover `loss`; null when there is nothing to recover or no profit per win. */
 export function breakEvenRounds(loss: Money, bet: Money, multiplier: string): number | null {
   const l = D(loss);

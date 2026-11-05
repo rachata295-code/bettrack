@@ -4,17 +4,17 @@ import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { D, formatMoney, formatPercent, parseMoneyInput } from '@/lib/calculations/money';
+import { formatMoney, formatPercent, isPositive, parseMoneyInput } from '@/lib/calculations/money';
 import {
   breakEvenRounds,
   breakEvenWinRate,
   currentLoss,
   evPerRound,
   houseEdgeExampleP,
+  isAboveOne,
   parseProbability,
-  probAtLeastOneWin,
+  probAtLeastOneWinPct,
 } from '@/lib/calculations/risk';
-import { cn } from '@/lib/utils';
 import type { Currency } from '@/types';
 
 interface RiskToolsProps {
@@ -44,11 +44,11 @@ function Field({ label, id, hint, error, children }: { label: string; id: string
   );
 }
 
-function Result({ label, value, className }: { label: string; value: string; className?: string }) {
+function Result({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-elevated px-3 py-2">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={cn('num text-base font-semibold', className)}>{value}</div>
+      <div className="num text-base font-semibold">{value}</div>
     </div>
   );
 }
@@ -61,9 +61,9 @@ export function RiskTools({ currency, precision, bet, multiplier, initialBalance
   const [lossRaw, setLossRaw] = useState<string | null>(null);
 
   const mParsed = parseMoneyInput(multiplier);
-  const mValid = mParsed.ok && D(mParsed.value).gt(1);
+  const mValid = mParsed.ok && isAboveOne(mParsed.value);
   const bParsed = parseMoneyInput(bet);
-  const bValid = bParsed.ok && D(bParsed.value).gt(0);
+  const bValid = bParsed.ok && isPositive(bParsed.value);
   const money = (v: string, signed = false) => formatMoney(v, { precision, currency, signed });
 
   // --- Win probability estimate ---
@@ -131,16 +131,16 @@ export function RiskTools({ currency, precision, bet, multiplier, initialBalance
         {p && (
           <div className="grid gap-2 sm:grid-cols-2" aria-live="polite">
             {ev !== null ? (
-              <Result
-                label={`Expected value per round (bet ${money(bet)})`}
-                value={money(ev, true)}
-                className={D(ev).isZero() ? '' : D(ev).isPositive() ? 'text-profit' : 'text-loss'}
-              />
+              // Neutral colour on purpose: p is the user's own guess, so a green "+" must not read as a promise.
+              <Result label={`Expected value per round at your estimate (bet ${money(bet)})`} value={money(ev, true)} />
             ) : (
               <p className="text-sm text-muted-foreground">Set a valid bet and multiplier in the Calculator to see expected value.</p>
             )}
             {kValid && (
-              <Result label={`Chance of at least 1 win in ${kNum} rounds`} value={formatPercent(D(probAtLeastOneWin(p, kNum)).mul(100).toString(), 2)} />
+              <Result
+                label={`If your estimate (${pTrimmed}%) is right: chance of ≥1 win in ${kNum} rounds`}
+                value={formatPercent(probAtLeastOneWinPct(p, kNum), 2)}
+              />
             )}
           </div>
         )}
@@ -156,7 +156,7 @@ export function RiskTools({ currency, precision, bet, multiplier, initialBalance
           />
         </Field>
         <div aria-live="polite" className="space-y-1">
-          {!lossParsed.ok ? null : D(lossParsed.value).isZero() ? (
+          {!lossParsed.ok ? null : !isPositive(lossParsed.value) ? (
             <p className="text-sm text-muted-foreground">Nothing to recover.</p>
           ) : !mValid || !bValid ? (
             <p className="text-sm text-muted-foreground">Set a valid bet and a multiplier above 1 in the Calculator.</p>
@@ -167,6 +167,9 @@ export function RiskTools({ currency, precision, bet, multiplier, initialBalance
             </p>
           ) : null}
           <p className="text-xs text-muted-foreground">No outcome is guaranteed.</p>
+          <p className="text-xs text-muted-foreground">
+            Recovering a loss is never guaranteed; chasing losses increases risk. · การไล่ทุนคืนไม่มีอะไรรับประกัน และยิ่งเพิ่มความเสี่ยง
+          </p>
         </div>
       </div>
     </section>

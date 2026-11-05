@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { breakEvenRounds, currentLoss, houseEdgeExampleP, breakEvenWinRate, evPerRound, parseProbability, probAtLeastOneWin } from '@/lib/calculations/risk';
+import { breakEvenRounds, currentLoss, houseEdgeExampleP, breakEvenWinRate, evPerRound, parseProbability, probAtLeastOneWin, probAtLeastOneWinPct, isAboveOne } from '@/lib/calculations/risk';
 
 describe('risk', () => {
   it('breakEvenWinRate', () => expect(breakEvenWinRate('2.03').startsWith('49.26')).toBe(true));
@@ -8,6 +8,15 @@ describe('risk', () => {
     expect(probAtLeastOneWin('0.5', 3)).toBe('0.875');
     expect(probAtLeastOneWin('0.5', 0)).toBe('0');
     expect(probAtLeastOneWin('0.5', 1.5)).toBe('0');
+  });
+  it('probAtLeastOneWinPct returns an unrounded percent string', () => {
+    expect(probAtLeastOneWinPct('0.5', 5)).toBe('96.875');
+    expect(probAtLeastOneWinPct('0.5', 0)).toBe('0');
+  });
+  it('isAboveOne', () => {
+    expect(isAboveOne('2.03')).toBe(true);
+    expect(isAboveOne('1')).toBe(false);
+    expect(isAboveOne('0.5')).toBe(false);
   });
   it('breakEvenRounds', () => {
     expect(breakEvenRounds('8', '4', '2.03')).toBe(2);
