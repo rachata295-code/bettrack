@@ -34,8 +34,9 @@ function ChartTooltip({ active, payload, currency, unit }: { active?: boolean; p
 
 export function PnlBarChart({ data, unit, currency, precision, height = 260 }: Props) {
   const last = data[data.length - 1];
+  const span = last && (data.length === 1 ? periodLabel(last.key, unit) : `${periodLabel(data[0]!.key, unit)} to ${periodLabel(last.key, unit)}`);
   const summary = last
-    ? `P&L per ${unit} for ${data.length} ${data.length === 1 ? 'period' : 'periods'} (${periodLabel(data[0]!.key, unit)} to ${periodLabel(last.key, unit)}), cumulative ${last.cumulativeText} ${currency}`
+    ? `P&L per ${unit} for ${data.length} ${data.length === 1 ? 'period' : 'periods'} (${span}), cumulative ${last.cumulativeText} ${currency}`
     : 'P&L chart with no data';
   const animate = !prefersReducedMotion();
   return (
