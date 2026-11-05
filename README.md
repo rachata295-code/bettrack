@@ -88,6 +88,10 @@ All data stays in your browser's `localStorage` under the keys `bettrack:v1:bets
 
 To back up, open **Sessions** and use the JSON export; to restore, use import on the same page. History can also be exported as CSV. Export a backup regularly.
 
+## Wallet
+
+The **Wallet** page records your real deposits and withdrawals (with fees, in Bangkok time) and shows your real result: Net = withdrawals − deposits − fees + on platform. Amounts in other currencies are converted only with exchange rates you enter in Settings. It also includes a withdrawal calculator. Wallet data is stored under `bettrack:v1:wallet`.
+
 ## Deploy to Vercel
 
 1. In Vercel choose **Add New... > Project > Import Git Repository** and pick this repo.

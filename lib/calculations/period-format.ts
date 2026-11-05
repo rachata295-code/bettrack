@@ -77,6 +77,30 @@ export function timeInTz(iso: string, tz: string = APP_TZ): string {
   return format(new TZDate(Date.parse(iso), tz), 'HH:mm');
 }
 
+// Bangkok has no DST and is fixed at UTC+7, so a plain offset is exact.
+const BKK_OFFSET_MS = 7 * 3600_000;
+const LOCAL_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
+/** `datetime-local` value ('YYYY-MM-DDTHH:mm') read as Bangkok time -> ISO UTC; null when malformed or impossible. */
+export function bangkokLocalToIso(value: string): string | null {
+  const m = LOCAL_RE.exec(value);
+  if (!m) return null;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number) as [number, number, number, number, number];
+  const utc = new Date(Date.UTC(y, mo - 1, d, h, mi));
+  // Round-trip check rejects overflow such as Feb 31 or hour 25.
+  if (utc.getUTCFullYear() !== y || utc.getUTCMonth() !== mo - 1 || utc.getUTCDate() !== d || utc.getUTCHours() !== h || utc.getUTCMinutes() !== mi) {
+    return null;
+  }
+  return new Date(utc.getTime() - BKK_OFFSET_MS).toISOString();
+}
+
+/** ISO instant -> Bangkok 'YYYY-MM-DDTHH:mm' for a `datetime-local` input ('' if unparsable). */
+export function isoToBangkokLocal(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  return new Date(t + BKK_OFFSET_MS).toISOString().slice(0, 16);
+}
+
 // Keys are calendar labels already in Bangkok time, so they are parsed as plain local dates (no tz shift).
 const KEY_FORMATS: Record<PeriodUnit, string> = { day: 'yyyy-MM-dd', week: "RRRR-'W'II", month: 'yyyy-MM' };
 const REF_DATE = new Date(2000, 0, 1);
