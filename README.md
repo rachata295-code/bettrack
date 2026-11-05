@@ -112,7 +112,7 @@ tests/          Vitest tests
 
 ## Your data and backups
 
-All data stays in your browser's `localStorage` under the keys `bettrack:v1:bets` and `bettrack:v1:settings`. Clearing site data, or using another browser or device, means the data will not be there.
+All data stays in your browser's `localStorage` under three keys: `bettrack:v1:bets` (sessions and rounds), `bettrack:v1:settings` and `bettrack:v1:wallet` (deposits and withdrawals). Clearing site data, or using another browser or device, means the data will not be there.
 
 To back up, open **Sessions** and use the JSON export; to restore, use import on the same page. History can also be exported as CSV. Export a backup regularly.
 

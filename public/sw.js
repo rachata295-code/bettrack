@@ -14,8 +14,8 @@
  * - Other same-origin GETs (icons, manifest, RSC payloads): stale-while-revalidate.
  * - Non-GET and cross-origin requests are not intercepted at all.
  *
- * Bump CACHE whenever this file's caching behaviour changes; activate deletes every other cache.
- * Bump CACHE in public/sw.js to ship a refreshed offline shell and trigger the in-app update prompt.
+ * Bump CACHE whenever this file's caching behaviour changes or to ship a refreshed offline shell:
+ * activate deletes every other cache, and the new worker triggers the in-app update prompt.
  */
 
 const CACHE = 'bettrack-v1';
