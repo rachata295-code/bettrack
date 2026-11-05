@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareDeltas, formatPlayTime, formatSignedPercent, sortBuckets, timeInTz } from '@/lib/calculations/period-format';
+import { compareDeltas, formatPlayTime, periodLabel, formatSignedPercent, sortBuckets, timeInTz } from '@/lib/calculations/period-format';
 import type { BucketSummary } from '@/lib/calculations/periods';
 
 const b = (over: Partial<BucketSummary>): BucketSummary => ({
@@ -76,5 +76,24 @@ describe('timeInTz', () => {
   it('shows Bangkok HH:mm', () => {
     expect(timeInTz('2026-11-04T17:30:00.000Z')).toBe('00:30');
     expect(timeInTz('2026-11-04T03:05:00.000Z')).toBe('10:05');
+  });
+});
+
+describe('periodLabel', () => {
+  it('day and month keys read as dates', () => {
+    expect(periodLabel('2026-11-04', 'day')).toBe('4 Nov 2026');
+    expect(periodLabel('2026-11', 'month')).toBe('Nov 2026');
+  });
+  it('ISO week becomes its Monday–Sunday range', () => {
+    expect(periodLabel('2026-W45', 'week')).toBe('2–8 Nov 2026');
+    expect(periodLabel('2026-W44', 'week')).toBe('26 Oct – 1 Nov 2026');
+  });
+  it('week crossing a year boundary shows both years', () => {
+    expect(periodLabel('2025-W01', 'week')).toBe('30 Dec 2024 – 5 Jan 2025');
+    expect(periodLabel('2026-W53', 'week')).toBe('28 Dec 2026 – 3 Jan 2027');
+  });
+  it('falls back to the raw key when it cannot be parsed', () => {
+    expect(periodLabel('nope', 'week')).toBe('nope');
+    expect(periodLabel('2026-13', 'month')).toBe('2026-13');
   });
 });

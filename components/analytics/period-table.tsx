@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatMoney, formatPercent } from '@/lib/calculations/money';
-import { formatPlayTime, formatSignedPercent, sortBuckets, type BucketSortKey } from '@/lib/calculations/period-format';
+import { formatPlayTime, formatSignedPercent, periodLabel, sortBuckets, type BucketSortKey } from '@/lib/calculations/period-format';
 import type { BucketSummary, PeriodUnit } from '@/lib/calculations/periods';
 import { downloadText } from '@/lib/io/download';
 import { summaryFilename } from '@/lib/io/filename';
@@ -85,7 +85,7 @@ export function PeriodTable({ buckets, unit, precision }: { buckets: readonly Bu
             const roi = formatSignedPercent(b.roiPct, 1);
             return (
               <TableRow key={b.key}>
-                <TableCell className="num whitespace-nowrap font-medium">{b.key}</TableCell>
+                <TableCell className="num whitespace-nowrap font-medium">{periodLabel(b.key, unit)}</TableCell>
                 <TableCell className="num text-right">{b.rounds}</TableCell>
                 <TableCell className="num text-right whitespace-nowrap">{b.wins}/{b.losses}</TableCell>
                 <TableCell className="num text-right">{formatPercent(b.winRatePct, 1)}</TableCell>

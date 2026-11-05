@@ -1,7 +1,7 @@
 'use client';
 
 import { formatMoney, formatPercent } from '@/lib/calculations/money';
-import { compareDeltas } from '@/lib/calculations/period-format';
+import { compareDeltas, periodLabel } from '@/lib/calculations/period-format';
 import type { BucketSummary, PeriodUnit } from '@/lib/calculations/periods';
 import { cn } from '@/lib/utils';
 import type { Currency } from '@/types';
@@ -49,7 +49,9 @@ export function CompareCards({ current, previous, unit, currency, precision }: P
   ];
   return (
     <section aria-label={`${t.cur} compared with ${t.prev}`} className="space-y-2">
-      <h2 className="text-lg font-semibold">{t.cur} <span className="text-sm font-normal text-muted-foreground">vs {t.prev}</span></h2>
+      <h2 className="text-lg font-semibold">
+        {t.cur} <span className="text-sm font-normal text-muted-foreground">({periodLabel(current.key, unit)}) vs {t.prev}</span>
+      </h2>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {cards.map(c => (
           <div key={c.label} className="min-w-0 rounded-xl bg-card p-4 ring-1 ring-foreground/10">

@@ -1,9 +1,9 @@
 import { TZDate } from '@date-fns/tz';
-import { format } from 'date-fns';
+import { addDays, format, isValid, parse } from 'date-fns';
 import Decimal from 'decimal.js';
 import type { Money } from '@/types';
 import { D, formatMoney } from './money';
-import { APP_TZ, type BucketSummary } from './periods';
+import { APP_TZ, type BucketSummary, type PeriodUnit } from './periods';
 
 /** "1h 05m" (or "5m" under an hour). Estimated play time is never negative. */
 export function formatPlayTime(minutes: number): string {
@@ -75,4 +75,24 @@ export function sortBuckets(buckets: readonly BucketSummary[], key: BucketSortKe
 /** HH:mm in Bangkok time, regardless of the device timezone. */
 export function timeInTz(iso: string, tz: string = APP_TZ): string {
   return format(new TZDate(Date.parse(iso), tz), 'HH:mm');
+}
+
+// Keys are calendar labels already in Bangkok time, so they are parsed as plain local dates (no tz shift).
+const KEY_FORMATS: Record<PeriodUnit, string> = { day: 'yyyy-MM-dd', week: "RRRR-'W'II", month: 'yyyy-MM' };
+const REF_DATE = new Date(2000, 0, 1);
+
+/**
+ * Human label for a period key: "4 Nov 2026", "2–8 Nov 2026" / "30 Dec 2024 – 5 Jan 2025", "Nov 2026".
+ * Display only — CSV export keeps the raw sortable keys.
+ */
+export function periodLabel(key: string, unit: PeriodUnit): string {
+  const d = parse(key, KEY_FORMATS[unit], REF_DATE);
+  // date-fns accepts overflowing parts; round-tripping rejects keys like "2026-13".
+  if (!isValid(d) || format(d, KEY_FORMATS[unit]) !== key) return key;
+  if (unit === 'day') return format(d, 'd MMM yyyy');
+  if (unit === 'month') return format(d, 'MMM yyyy');
+  const end = addDays(d, 6);
+  if (d.getFullYear() !== end.getFullYear()) return `${format(d, 'd MMM yyyy')} – ${format(end, 'd MMM yyyy')}`;
+  if (d.getMonth() !== end.getMonth()) return `${format(d, 'd MMM')} – ${format(end, 'd MMM yyyy')}`;
+  return `${format(d, 'd')}–${format(end, 'd MMM yyyy')}`;
 }
