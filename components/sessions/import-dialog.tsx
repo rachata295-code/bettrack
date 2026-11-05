@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { parseBackup, type Backup } from '@/lib/io/backup';
 import { useBetStore } from '@/store/bet-store';
 import { useSettingsStore } from '@/store/settings-store';
+import { useWalletStore } from '@/store/wallet-store';
 
 interface Props {
   open: boolean;
@@ -54,6 +55,8 @@ function ImportBody({ onDone }: { onDone: () => void }) {
     if (!backup) return;
     try {
       const { added, skipped } = useBetStore.getState().importSessions(backup.sessions, mode);
+      // M1/M2 backups carry no transactions: leave the wallet untouched (even on Replace) rather than wiping it.
+      if (backup.transactions) useWalletStore.getState().importTransactions(backup.transactions, mode);
       // Backups carry precision as a display preference; restoring it keeps "same as before" true after Replace.
       if (mode === 'replace' && backup.settings) {
         useSettingsStore.getState().setPrecision(backup.settings.precision);
@@ -94,9 +97,9 @@ function ImportBody({ onDone }: { onDone: () => void }) {
 
       {backup && (
         <div className="space-y-1 rounded-lg bg-elevated px-3 py-2 text-sm" aria-live="polite">
-          <p className="num font-medium">{backup.sessions.length} sessions, {rounds} rounds</p>
+          <p className="num font-medium">{backup.sessions.length} sessions, {rounds} rounds{backup.transactions ? `, ${backup.transactions.length} transactions` : ''}</p>
           <p className="text-muted-foreground">{fileName}</p>
-          <p className="text-muted-foreground">Merge keeps your data and skips sessions with an id you already have. Replace deletes everything here first.</p>
+          <p className="text-muted-foreground">Merge keeps your data and skips sessions and transactions with an id you already have. Replace deletes everything here first.</p>
         </div>
       )}
 
@@ -111,7 +114,7 @@ function ImportBody({ onDone }: { onDone: () => void }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Replace all data?</AlertDialogTitle>
             <AlertDialogDescription>
-              All current sessions and rounds will be deleted and replaced by the {backup?.sessions.length ?? 0} sessions in this file. This cannot be undone.
+              All current sessions and rounds{backup?.transactions ? ' and wallet transactions' : ''} will be deleted and replaced by the {backup?.sessions.length ?? 0} sessions{backup?.transactions ? ` and ${backup.transactions.length} transactions` : ''} in this file. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

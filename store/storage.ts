@@ -2,10 +2,11 @@ import type { StateStorage } from 'zustand/middleware';
 import { DEFAULT_GUARD, parseGuardSettings } from '@/lib/calculations/guard';
 import { sanitizeFees, sanitizeFx } from '@/lib/calculations/fx';
 import { sanitizeRealityCheck } from '@/lib/calculations/reality-check';
-import { StoredSessionSchema } from '@/lib/io/backup';
+import { StoredSessionSchema, StoredTransactionSchema } from '@/lib/io/backup';
 
 export const BETS_KEY = 'bettrack:v1:bets';
 export const SETTINGS_KEY = 'bettrack:v1:settings';
+export const WALLET_KEY = 'bettrack:v1:wallet';
 
 export interface LoadIssue {
   key: string;
@@ -85,6 +86,12 @@ function validate(name: string, raw: string): string | null {
     const r = StoredSessionSchema.array().safeParse(state.sessions);
     if (!r.success) return null;
     return JSON.stringify({ ...(parsed as object), state: { ...state, sessions: r.data } });
+  }
+  if (name === WALLET_KEY) {
+    // Money records: invalid data must trigger recovery, never be silently replaced by defaults.
+    const r = StoredTransactionSchema.array().safeParse(state.transactions);
+    if (!r.success) return null;
+    return JSON.stringify({ ...(parsed as object), state: { ...state, transactions: r.data } });
   }
   if (name === SETTINGS_KEY) {
     // Bad precision or guard is harmless: fall back to defaults rather than blocking the app.

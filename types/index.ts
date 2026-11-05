@@ -65,3 +65,15 @@ export interface GuardSettings {
   dailyLossLimit?: Money; // all sessions of one currency, Bangkok day
   chasingAlert: boolean;
 }
+
+// Real money moved between the user's bank/wallet and the platform (PLAN.md §3.1).
+export type TransactionType = 'deposit' | 'withdraw';
+export interface Transaction {
+  id: string;
+  type: TransactionType;
+  amount: Money; // > 0, in `currency`
+  currency: Currency;
+  fee: Money; // >= 0, in `currency`
+  at: string; // ISO 8601
+  note?: string;
+}

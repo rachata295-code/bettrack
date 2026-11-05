@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatMoney } from '@/lib/calculations/money';
 import { createBackup } from '@/lib/io/backup';
+import { useWalletStore } from '@/store/wallet-store';
 import { downloadText } from '@/lib/io/download';
 import { exportFilename } from '@/lib/io/filename';
 import { useBetStore } from '@/store/bet-store';
@@ -40,7 +41,8 @@ export default function SettingsPage() {
   const exportBackup = () => {
     try {
       const { sessions } = useBetStore.getState();
-      downloadText(exportFilename('backup', 'json'), JSON.stringify(createBackup(sessions, { precision, guard, fx, fees, realityCheck }), null, 2), 'application/json');
+      const { transactions } = useWalletStore.getState();
+      downloadText(exportFilename('backup', 'json'), JSON.stringify(createBackup(sessions, { precision, guard, fx, fees, realityCheck }, transactions), null, 2), 'application/json');
     } catch {
       toast.error('Export failed');
     }
@@ -49,6 +51,7 @@ export default function SettingsPage() {
   const reset = () => {
     if (!canReset) return;
     useBetStore.getState().resetAll();
+    useWalletStore.getState().resetAll();
     setPrecision(DEFAULT_PRECISION);
     useSettingsStore.getState().resetGuard();
     useSettingsStore.getState().resetFxFees();

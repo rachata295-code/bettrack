@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CURRENCIES } from '@/types';
-import type { Session, Settings } from '@/types';
+import type { Session, Settings, Transaction } from '@/types';
 import { parseGuardSettings, validateLimitValue } from '@/lib/calculations/guard';
 import { DEFAULT_FEES, validateFeesPatch, validateFxPatch } from '@/lib/calculations/fx';
 import { D, isPositive, parseMoneyInput } from '@/lib/calculations/money';
@@ -89,6 +89,20 @@ const sessionSchema = (date: DateSchema) =>
     updatedAt: date,
   });
 
+const transactionSchema = (date: DateSchema) =>
+  z.object({
+    id: z.string().min(1),
+    type: z.enum(['deposit', 'withdraw']),
+    amount: positive,
+    currency: z.enum(CURRENCIES as [Session['currency'], ...Session['currency'][]]),
+    fee: nonNegative,
+    at: date,
+    note: z.string().max(200).optional(),
+  });
+export const TransactionSchema = transactionSchema(isoDate);
+/** Lenient dates, normalised to ISO: only for reading this app's own localStorage. */
+export const StoredTransactionSchema = transactionSchema(lenientDate);
+
 /** Strict: file import (untrusted input) requires canonical ISO 8601 dates. */
 export const SessionSchema = sessionSchema(isoDate);
 /** Lenient dates, normalised to ISO: only for reading this app's own localStorage. */
@@ -99,6 +113,8 @@ export const BackupSchema = z.object({
   version: z.literal(BACKUP_VERSION),
   exportedAt: isoDate,
   sessions: z.array(SessionSchema),
+  // Optional so M1/M2 backups (no wallet data) still parse.
+  transactions: z.array(TransactionSchema).optional(),
   settings: z
     .object({
       precision: z.number().int().min(0).max(8),
@@ -117,9 +133,10 @@ export interface Backup {
   exportedAt: string;
   sessions: Session[];
   settings?: Settings;
+  transactions?: Transaction[];
 }
 
-export function createBackup(sessions: Session[], settings?: Settings): Backup {
+export function createBackup(sessions: Session[], settings?: Settings, transactions?: Transaction[]): Backup {
   // currentBalance is a convenience for humans reading the file; it is never trusted on import.
   const withBalance = sessions.map(s => ({
     ...s,
@@ -131,6 +148,7 @@ export function createBackup(sessions: Session[], settings?: Settings): Backup {
     exportedAt: new Date().toISOString(),
     sessions: withBalance,
     ...(settings ? { settings } : {}),
+    ...(transactions ? { transactions } : {}),
   };
 }
 
