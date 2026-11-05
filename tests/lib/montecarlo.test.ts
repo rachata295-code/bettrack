@@ -68,6 +68,15 @@ describe('simulate', () => {
     expect(r.ruinProb).toBe(1);
     expect(r.medianFinal).toBeLessThan(1);
   });
+  it('percent bet floors on integer units (no float undershoot)', () => {
+    const pct = { mode: 'percent', percent: 100, minBet: 0.01 } as const;
+    expect(simulate({ ...base, p: 1, start: 1.15, bet: pct, rounds: 1 })!.medianFinal).toBe(2.3);
+    expect(simulate({ ...base, p: 1, start: 0.29, bet: pct, rounds: 1 })!.medianFinal).toBe(0.58);
+  });
+  it('counts a run that cannot afford the next bet after the last round as ruined', () => {
+    expect(simulate({ ...base, p: 0, rounds: 2 })).toMatchObject({ ruinProb: 1, medianFinal: 2 });
+    expect(simulate({ ...base, p: 0, rounds: 1 })).toMatchObject({ ruinProb: 0, medianFinal: 6 });
+  });
   it('reports progress at least once, ending at runs', () => {
     const seen: number[] = [];
     simulate({ ...base, p: 0.5, runs: 500 }, { onProgress: (d) => seen.push(d) });

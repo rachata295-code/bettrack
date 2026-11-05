@@ -64,6 +64,15 @@ export function simulate(
   const startR = round(start);
   const profitMult = multiplier - 1;
 
+  // Bet for the next round; Infinity means it cannot be played (below minBet in percent mode).
+  // Percent floor works on integer units (round first) so float error like 1.15*100 = 114.99999 cannot undershoot.
+  const nextBet = (balance: number): number => {
+    if (bet.mode === 'fixed') return bet.amount;
+    if (balance < bet.minBet) return Infinity;
+    const units = Math.floor((Math.round(balance * scale) * bet.percent) / 100 + 1e-9) / scale;
+    return Math.max(bet.minBet, units);
+  };
+
   // Snapshot rounds: 0 and evenly spaced up to `rounds` (strictly increasing since rounds/k >= 1).
   const k = Math.min(rounds, MAX_POINTS);
   const points = k + 1;
@@ -84,15 +93,7 @@ export function simulate(
     snaps[base] = balance;
     for (let r = 1; r <= rounds; r++) {
       if (!dead) {
-        let amount: number;
-        if (bet.mode === 'fixed') {
-          amount = bet.amount;
-        } else if (balance < bet.minBet) {
-          amount = Infinity; // below the minimum bet: cannot play
-        } else {
-          const raw = Math.floor((balance * bet.percent) / 100 * scale) / scale;
-          amount = Math.max(bet.minBet, raw);
-        }
+        const amount = nextBet(balance);
         if (amount > balance) {
           dead = true;
           ruined++;
@@ -102,6 +103,8 @@ export function simulate(
       }
       if (r === snapRounds[next]) snaps[base + next++] = balance;
     }
+    // A run that cannot afford the next bet after the final round also counts as ruined (PLAN §5).
+    if (!dead && nextBet(balance) > balance) ruined++;
     if ((run + 1) % step === 0 || run + 1 === runs) {
       hooks?.onProgress?.(run + 1);
       if (run + 1 < runs && hooks?.shouldStop?.()) return null;
