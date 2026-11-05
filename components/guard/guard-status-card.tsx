@@ -27,7 +27,11 @@ export function GuardStatusCard({
       <h2 className="text-lg font-semibold">Bankroll guard</h2>
       <dl className="grid grid-cols-2 gap-3 text-sm lg:grid-cols-4">
         <Row label="Suggested bet">
-          {suggested === null ? '—' : `${formatMoney(suggested, { precision })} ${currency}`}
+          {suggested === null
+            ? '—'
+            : suggested.reason === 'capped'
+              ? 'Below minimum bet'
+              : `${formatMoney(suggested.amount, { precision })} ${currency}`}
         </Row>
         <Row label="Risk of current bet">{risk ? <RiskBadge pct={risk.pct} level={risk.level} /> : '—'}</Row>
         <Row label="Loss streak">{lossStreak}</Row>

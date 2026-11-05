@@ -13,15 +13,45 @@ export const DEFAULT_GUARD: GuardSettings = {
   chasingAlert: true,
 };
 
+export type SuggestionReason = 'percent' | 'min' | 'capped';
+
+export interface BetSuggestion {
+  amount: Money;
+  /**
+   * percent = the configured % of balance; min = bumped up to minBet (so the real share is higher);
+   * capped = balance is below minBet, so the "suggestion" would be all-in — callers should not offer it.
+   */
+  reason: SuggestionReason;
+  /** amount / balance × 100, unrounded — the share the label must state honestly. */
+  pctOfBalance: string;
+}
+
 /** Suggestion only; the user's bet is never changed automatically. */
-export function suggestedBet(balance: Money, sizing: GuardSettings['sizing'], precision: number): Money | null {
+export function suggestBet(balance: Money, sizing: GuardSettings['sizing'], precision: number): BetSuggestion | null {
   if (sizing.mode === 'fixed') return null;
   const bal = D(balance);
   if (bal.lte(0)) return null;
   // ROUND_DOWN so the suggestion never exceeds the chosen percentage.
   const raw = bal.mul(sizing.percent).div(100).toDecimalPlaces(precision, Decimal.ROUND_DOWN);
-  const floored = Decimal.max(sizing.minBet, raw);
-  return Decimal.min(floored, bal).toString();
+  const min = D(sizing.minBet);
+  let amount: Decimal;
+  let reason: SuggestionReason;
+  if (min.gt(bal)) {
+    amount = bal;
+    reason = 'capped';
+  } else if (raw.lt(min)) {
+    amount = min;
+    reason = 'min';
+  } else {
+    amount = raw;
+    reason = 'percent';
+  }
+  return { amount: amount.toString(), reason, pctOfBalance: amount.div(bal).mul(100).toString() };
+}
+
+/** Amount-only view of suggestBet (kept for existing callers). */
+export function suggestedBet(balance: Money, sizing: GuardSettings['sizing'], precision: number): Money | null {
+  return suggestBet(balance, sizing, precision)?.amount ?? null;
 }
 
 export type RiskLevel = 'low' | 'medium' | 'high';
@@ -137,9 +167,10 @@ export function limitProgress(input: Parameters<typeof limitHits>[0]): LimitProg
   return rows;
 }
 
-/** e.g. "Stop-loss: 6.00 / 10.00 USDT used". */
+/** e.g. "Stop-loss: 6.00 / 10.00 USDT used"; take-profit is profit gained, so it reads "reached". */
 export function formatLimitProgress(p: LimitProgress, precision: number, currency: Currency): string {
-  return `${p.label}: ${formatMoney(p.used, { precision })} / ${formatMoney(p.limit, { precision, currency })} used`;
+  const verb = p.hit === 'take_profit' ? 'reached' : 'used';
+  return `${p.label}: ${formatMoney(p.used, { precision })} / ${formatMoney(p.limit, { precision, currency })} ${verb}`;
 }
 
 /** Progress for the active session from raw state (display only; recording re-checks via evaluateSessionLimits). */

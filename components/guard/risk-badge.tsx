@@ -15,11 +15,10 @@ const LEVELS: Record<RiskLevel, { label: string; Icon: typeof ShieldCheck; class
 export function RiskBadge({ pct, level }: { pct: string; level: RiskLevel }) {
   const { label, Icon, className } = LEVELS[level];
   return (
-    <span
-      className={cn('num inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium', className)}
-      aria-label={`${label} risk: ${formatPercent(pct, 1)} of balance`}
-    >
+    <span className={cn('num inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium', className)}>
       <Icon className="size-3.5" aria-hidden />
+      {/* Visually-hidden text instead of aria-label: a role-less span's aria-label is ignored by many screen readers. */}
+      <span className="sr-only">{label} risk:</span>
       {formatPercent(pct, 1)} of balance
     </span>
   );

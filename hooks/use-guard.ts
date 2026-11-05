@@ -2,17 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  currentLossStreak, evaluateSessionLimits, evaluateSessionProgress, riskBand, suggestedBet,
-  type LimitHit, type LimitHitDetail, type LimitProgress, type RiskLevel,
+  currentLossStreak, evaluateSessionLimits, evaluateSessionProgress, riskBand, suggestBet,
+  type BetSuggestion, type LimitHit, type LimitHitDetail, type LimitProgress, type RiskLevel,
 } from '@/lib/calculations/guard';
 import { parseMoneyInput } from '@/lib/calculations/money';
-import type { Money } from '@/types';
 import { useBetStore } from '@/store/bet-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useTimeline } from './use-timeline';
 
 export interface GuardView {
-  suggested: Money | null;
+  /** Amount plus why (percent / bumped to min / capped at balance) so labels stay honest. */
+  suggested: BetSuggestion | null;
   /** pct is full precision; format at display time. */
   risk: { pct: string; level: RiskLevel } | null;
   lossStreak: number;
@@ -63,7 +63,7 @@ export function useGuard(bet: string): GuardView {
   const cooldownUntil = useBetStore(s => s.cooldownUntil);
   const cooldownRemainingMs = useCooldownRemaining(cooldownUntil);
 
-  const suggested = useMemo(() => suggestedBet(balance, guard.sizing, precision), [balance, guard.sizing, precision]);
+  const suggested = useMemo(() => suggestBet(balance, guard.sizing, precision), [balance, guard.sizing, precision]);
 
   const parsedBet = parseMoneyInput(bet);
   const betValue = parsedBet.ok ? parsedBet.value : null;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   chasingFlags, currentLossStreak, DEFAULT_GUARD, formatCountdown, formatLimitProgress, limitHits, limitProgress, evaluateSessionProgress, resolveLimit,
-  riskBand, suggestedBet, todayPnl, wouldChase,
+  riskBand, suggestBet, suggestedBet, todayPnl, wouldChase,
 } from '@/lib/calculations/guard';
 import { collectRows } from '@/lib/calculations/periods';
 import type { Round, Session } from '@/types';
@@ -24,6 +24,26 @@ describe('suggestedBet', () => {
     expect(suggestedBet('16.99', { ...pct, mode: 'fixed' }, 2)).toBeNull();
     expect(suggestedBet('0', pct, 2)).toBeNull();
     expect(suggestedBet('-1', pct, 2)).toBeNull();
+  });
+});
+
+describe('suggestBet reason', () => {
+  it('percent when the % amount is at or above minBet', () => {
+    expect(suggestBet('16.99', pct, 2)).toEqual({ amount: '1.69', reason: 'percent', pctOfBalance: expect.any(String) });
+    expect(suggestBet('1', pct, 2)?.reason).toBe('percent');
+  });
+  it('min when bumped up to minBet, with the real share of balance', () => {
+    const s = suggestBet('0.5', pct, 2)!;
+    expect(s.amount).toBe('0.1');
+    expect(s.reason).toBe('min');
+    expect(s.pctOfBalance).toBe('20');
+  });
+  it('capped when balance is below minBet (would be all-in)', () => {
+    expect(suggestBet('0.05', pct, 2)).toEqual({ amount: '0.05', reason: 'capped', pctOfBalance: '100' });
+  });
+  it('null for fixed mode or non-positive balance', () => {
+    expect(suggestBet('16.99', { ...pct, mode: 'fixed' }, 2)).toBeNull();
+    expect(suggestBet('0', pct, 2)).toBeNull();
   });
 });
 
@@ -139,6 +159,11 @@ describe('limitProgress', () => {
       ['daily_loss', '3', '3', true],
     ]);
     expect(formatLimitProgress(rows[0]!, 2, 'USDT')).toBe('Stop-loss: 6.00 / 10.00 USDT used');
+    expect(formatLimitProgress(rows[2]!, 2, 'USDT')).toBe('Daily loss: 3.00 / 3.00 USDT used');
+  });
+  it('take-profit progress reads "reached", not "used"', () => {
+    const [tp] = limitProgress({ initialBalance: '100', balance: '102', todayPnl: '2', limits: { takeProfit: { kind: 'amount', value: '5' } } });
+    expect(formatLimitProgress(tp!, 2, 'USDT')).toBe('Take-profit: 2.00 / 5.00 USDT reached');
   });
   it('clamps used at zero when the move goes the other way', () => {
     const rows = limitProgress({ initialBalance: '100', balance: '107', todayPnl: '7', limits: { stopLoss: { kind: 'amount', value: '10' }, takeProfit: { kind: 'amount', value: '5' } }, dailyLossLimit: '4' });

@@ -55,7 +55,10 @@ function Calculator() {
   // A pending limit confirmation also blocks W/L so a key press can't stack a second request.
   const canRecord = v.ok && !locked && !helpOpen && !onBreak && !pending;
   // Suggestion is hidden when it would change nothing (same amount as typed) or sizing is fixed.
-  const showSuggestion = sizing.mode === 'percent' && guard.suggested !== null && !isSameAmount(guard.suggested, bet);
+  // A 'capped' suggestion (balance below minBet) is still shown, as a notice instead of an amount.
+  const suggestion = guard.suggested;
+  const showSuggestion =
+    sizing.mode === 'percent' && suggestion !== null && (suggestion.reason === 'capped' || !isSameAmount(suggestion.amount, bet));
 
   useKeyboardShortcuts({
     win: () => canRecord && record('win'),
@@ -101,7 +104,7 @@ function Calculator() {
         />
         {showSuggestion && (
           <SuggestedBet
-            suggested={guard.suggested!}
+            suggestion={suggestion!}
             percent={sizing.percent}
             precision={precision}
             currency={session.currency}
