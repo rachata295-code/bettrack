@@ -45,13 +45,22 @@ export interface BucketPoint {
   key: string;
   pnl: number;
   cumulative: number;
+  pnlText: string;
+  cumulativeText: string;
 }
 
-export function bucketSeries(buckets: readonly BucketSummary[]): BucketPoint[] {
+export function bucketSeries(buckets: readonly BucketSummary[], precision = 2): BucketPoint[] {
   // Accumulate in Decimal so 0.1 + 0.2 does not drift before conversion.
   let cum = D('0');
   return buckets.map(b => {
     cum = cum.plus(D(b.pnl));
-    return { key: b.key, pnl: Number(b.pnl), cumulative: cum.toNumber() };
+    const cumStr = cum.toString();
+    return {
+      key: b.key,
+      pnl: Number(b.pnl),
+      cumulative: cum.toNumber(),
+      pnlText: formatMoney(b.pnl, { precision, signed: true }),
+      cumulativeText: formatMoney(cumStr, { precision, signed: true }),
+    };
   });
 }

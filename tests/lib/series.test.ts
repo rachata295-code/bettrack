@@ -36,3 +36,12 @@ describe('bucketSeries', () => {
     expect(bucketSeries(b)[1]!.cumulative).toBe(0.3);
   });
 });
+
+describe('bucketSeries display text', () => {
+  it('precomputes signed text from Decimal values', () => {
+    const b = ['4.12', '-5', '0.885'].map((pnl, i) => ({ key: `k${i}`, pnl }) as BucketSummary);
+    const s = bucketSeries(b, 2);
+    expect(s.map(x => x.pnlText)).toEqual(['+4.12', '−5.00', '+0.89']);
+    expect(s.map(x => x.cumulativeText)).toEqual(['+4.12', '−0.88', '+0.01']);
+  });
+});
