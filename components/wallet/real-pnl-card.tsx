@@ -67,7 +67,7 @@ export function RealPnlCard() {
 
   const money = (v: string) => formatMoney(v, { precision, currency });
   const netText = okPnl ? formatMoney(okPnl.net, { precision, currency, signed: true }) : null;
-  const approx = okPnl ? approxThbLabel(okPnl.net, currency, fx, precision) : null;
+  const approx = okPnl ? approxThbLabel(okPnl.net, currency, fx, precision, { signed: true }) : null;
 
   return (
     <section className="space-y-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10" aria-labelledby="real-pnl-title">

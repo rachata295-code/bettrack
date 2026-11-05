@@ -31,7 +31,10 @@ export function TransactionList() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<Transaction | null>(null);
   // Newest first by actual instant, not insertion order.
-  const sorted = useMemo(() => [...transactions].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)), [transactions]);
+  // Equal timestamps: later insertion first (reverse before a stable sort).
+  const sorted = useMemo(() => [...transactions].reverse().sort((a, b) => Date.parse(b.at) - Date.parse(a.at)), [transactions]);
+  // Keep the last edited item until the exit animation ends, so the form never flashes "Add transaction".
+  const [lastEdited, setLastEdited] = useState<Transaction | null>(null);
 
   if (sorted.length === 0) {
     return (
@@ -60,13 +63,13 @@ export function TransactionList() {
               {t.note && <p className="break-words text-sm">{t.note}</p>}
             </div>
             <div className="flex shrink-0 items-center">
-              <Button variant="ghost" size="icon" aria-label={`Edit ${t.type}`} onClick={() => setEditing(t)}><Pencil /></Button>
+              <Button variant="ghost" size="icon" aria-label={`Edit ${t.type}`} onClick={() => { setLastEdited(t); setEditing(t); }}><Pencil /></Button>
               <Button variant="ghost" size="icon" aria-label={`Delete ${t.type}`} onClick={() => setDeleting(t)}><Trash2 /></Button>
             </div>
           </li>
         ))}
       </ul>
-      <TransactionDialog transaction={editing ?? undefined} open={editing !== null} onOpenChange={o => !o && setEditing(null)} />
+      <TransactionDialog transaction={editing ?? lastEdited ?? undefined} open={editing !== null} onOpenChange={o => !o && setEditing(null)} />
       <AlertDialog open={deleting !== null} onOpenChange={o => !o && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

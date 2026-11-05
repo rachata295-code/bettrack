@@ -119,8 +119,8 @@ export function netBankWithdrawal(
 }
 
 /** "≈ 594.65 THB" for non-THB amounts when a rate exists; null otherwise (nothing to show). */
-export function approxThbLabel(amount: Money, currency: Currency, fx: FxRates, precision: number): string | null {
+export function approxThbLabel(amount: Money, currency: Currency, fx: FxRates, precision: number, opts: { signed?: boolean } = {}): string | null {
   if (currency === 'THB') return null;
   const thb = convert(amount, currency, 'THB', fx);
-  return thb === null ? null : `≈ ${formatMoney(thb, { precision, currency: 'THB' })}`;
+  return thb === null ? null : `≈ ${formatMoney(thb, { precision, currency: 'THB', signed: opts.signed })}`;
 }

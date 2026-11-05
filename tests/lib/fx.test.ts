@@ -59,4 +59,9 @@ describe('approxThbLabel', () => {
     expect(approxThbLabel('16.99', 'USDT', {}, 2)).toBeNull();
     expect(approxThbLabel('16.99', 'THB', { usdtThb: '35' }, 2)).toBeNull();
   });
+  it('is unsigned by default and signed on request (U+2212 for negatives)', () => {
+    expect(approxThbLabel('-1', 'USDT', { usdtThb: '35' }, 2)).toBe('≈ -35.00 THB');
+    expect(approxThbLabel('1', 'USDT', { usdtThb: '35' }, 2, { signed: true })).toBe('≈ +35.00 THB');
+    expect(approxThbLabel('-1', 'USDT', { usdtThb: '35' }, 2, { signed: true })).toBe('≈ −35.00 THB');
+  });
 });
