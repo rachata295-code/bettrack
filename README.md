@@ -51,9 +51,31 @@ Guard is a set of warnings and suggestions about your own bankroll, configured i
 - Monte Carlo simulator (More > Simulator): runs thousands of simulated sessions under a win probability *you assume* (the field starts empty; an example button fills a 1% house edge). Fixed or percent-of-balance bets, seedable and repeatable, runs in a Web Worker with progress and Cancel
 - Shows risk of ruin, median and mean final balance, chance of finishing above the start, and a 10th to 90th percentile band chart. It is a simulation of your assumption, not a forecast
 
+### Wallet, fees and real P&L
+
+- Wallet (More > Wallet): record real deposits and withdrawals with fees. Real P&L = withdrawals − deposits − fees + balance on platform, shown in Wallet and as a card on the Dashboard
+- Manual exchange rates and fees (Settings): you enter USDT/THB and USD/THB rates yourself; nothing is fetched from the internet. Without a rate, converted figures are hidden. A net bank withdrawal calculator shows what reaches your bank after crypto, spread, trading and THB fees
+- Analytics period table shows Deposits and Withdrawals columns when you have transactions (also in the CSV export)
+
+### Reality check
+
+An optional reminder (Settings) every N minutes showing how long you have played and your current result. It is information only.
+
+### Installable app (PWA) and offline
+
+BetTrack can be installed and works offline after the first load (the app shell is cached; your data stays in `localStorage`). When a new version is available an in-app prompt asks you to reload.
+
+- **iOS Safari:** open the site, tap Share, choose **Add to Home Screen**, then Add.
+- **Android Chrome:** open the site, tap the menu (three dots), choose **Add to Home screen** (or **Install app**), then confirm.
+
+For maintainers: bump `CACHE` in `public/sw.js` to ship a refreshed offline shell and trigger the in-app update prompt.
+
 ## Roadmap
 
-- **M3: Extras** wallet and real P&L, currency and fees, Monte Carlo simulator, PWA
+M1 to M3 are complete. Ideas only, nothing committed:
+
+- More export formats
+- Optional charts for wallet history
 
 ## Getting started
 
@@ -78,11 +100,12 @@ pnpm dev        # http://localhost:3000
 ## Project structure
 
 ```
-app/            Next.js App Router pages ((app)/ holds Dashboard, Calculator, History, Analytics, Sessions, Settings)
-components/     UI: layout/, dashboard/, calculator/, guard/, charts/, analytics/, history/, sessions/, ui/ (shadcn)
-hooks/          React hooks (timeline, guard, recording rounds, shortcuts)
-lib/            Pure logic, no React: calculations/ (money, round, timeline, stats, guard, chasing, periods, series, calendar, risk), io/ (backup, CSV)
-store/          Zustand stores and localStorage persistence
+app/            Next.js App Router pages ((app)/ holds Dashboard, Calculator, History, Analytics, Simulator, Wallet, Sessions, Settings)
+components/     UI: layout/, dashboard/, calculator/, guard/, charts/, analytics/, history/, sessions/, wallet/, simulator/, ui/ (shadcn)
+hooks/          React hooks (timeline, guard, analytics, simulation, reality check, recording rounds, shortcuts)
+lib/            Pure logic, no React: calculations/ (money, round, timeline, stats, guard, chasing, periods, series, calendar, risk, fx, wallet, montecarlo, reality-check), io/ (backup, CSV)
+store/          Zustand stores and localStorage persistence (bets, settings, wallet)
+public/         Static assets, PWA icons and the hand-written service worker (sw.js)
 types/          Shared TypeScript types
 tests/          Vitest tests
 ```
@@ -105,7 +128,7 @@ The **Wallet** page records your real deposits and withdrawals (with fees, in Ba
 
 ## สรุปภาษาไทย
 
-BetTrack คือเครื่องคิดยอดเงินและสมุดบันทึกผลการเล่นส่วนตัว คุณกด WIN/LOSE เอง แอปคำนวณยอดคงเหลือและสถิติให้ ข้อมูลอยู่ใน localStorage ของเบราว์เซอร์เท่านั้น (ไม่มี backend) แอปนี้ไม่เชื่อมต่อเว็บพนัน ไม่ทำนายผล และไม่ใช่คำแนะนำทางการเงิน มี Bankroll Guard ที่เป็นเพียงการเตือนและข้อเสนอแนะขนาดเดิมพัน (ไม่ใช่การทำนาย และไม่เปลี่ยน bet ให้เอง) และหน้า Analytics (กราฟ ยอดรายวัน/สัปดาห์/เดือนตามเวลาไทย ปฏิทิน และ CSV) ควร export backup เป็นประจำที่หน้า Sessions
+BetTrack คือเครื่องคิดยอดเงินและสมุดบันทึกผลการเล่นส่วนตัว คุณกด WIN/LOSE เอง แอปคำนวณยอดคงเหลือและสถิติให้ ข้อมูลอยู่ใน localStorage ของเบราว์เซอร์เท่านั้น (ไม่มี backend) แอปนี้ไม่เชื่อมต่อเว็บพนัน ไม่ทำนายผล และไม่ใช่คำแนะนำทางการเงิน มี Bankroll Guard ที่เป็นเพียงการเตือนและข้อเสนอแนะขนาดเดิมพัน (ไม่ใช่การทำนาย และไม่เปลี่ยน bet ให้เอง) และหน้า Analytics (กราฟ ยอดรายวัน/สัปดาห์/เดือนตามเวลาไทย ปฏิทิน และ CSV) นอกจากนี้มี Wallet และ Real P&L (ฝาก/ถอน/ค่าธรรมเนียม ตามอัตราแลกเปลี่ยนที่คุณกรอกเอง ไม่ดึงจากอินเทอร์เน็ต) เครื่องคิดยอดถอนเข้าบัญชีธนาคารสุทธิ ตัวจำลอง Monte Carlo (เป็นการจำลองภายใต้ความน่าจะเป็นที่คุณสมมุติ ไม่ใช่การทำนาย) การเตือน Reality check และติดตั้งเป็นแอป (PWA) ใช้งานออฟไลน์ได้ โดยเลือก Add to Home Screen บนมือถือ ควร export backup เป็นประจำที่หน้า Sessions
 
 ## License
 

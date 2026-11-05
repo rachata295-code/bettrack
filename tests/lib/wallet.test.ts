@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { onPlatformBalance, realPnl, validateTransaction } from '@/lib/calculations/wallet';
+import { onPlatformBalance, realPnl, validateTransaction, walletByBucket } from '@/lib/calculations/wallet';
 import type { Currency, Session, Transaction } from '@/types';
 
 const tx = (type: 'deposit' | 'withdraw', amount: string, fee = '0', currency: Currency = 'USDT'): Transaction => ({
@@ -62,5 +62,31 @@ describe('validateTransaction', () => {
   it('rejects non-objects', () => {
     expect(validateTransaction(null).ok).toBe(false);
     expect(validateTransaction('x').ok).toBe(false);
+  });
+});
+
+describe('walletByBucket', () => {
+  const at = (iso: string, type: 'deposit' | 'withdraw', amount: string, currency: Currency = 'USDT'): Transaction => ({
+    id: iso + type + amount, type, amount, fee: '5', currency, at: iso,
+  });
+  it('splits days at Bangkok midnight', () => {
+    const r = walletByBucket([at('2026-11-04T16:59:00.000Z', 'deposit', '10'), at('2026-11-04T17:01:00.000Z', 'deposit', '20')], 'day', 'USDT', {});
+    expect(r).toEqual({ '2026-11-04': { deposits: '10', withdrawals: '0' }, '2026-11-05': { deposits: '20', withdrawals: '0' } });
+  });
+  it('sums deposits and withdrawals separately, fees excluded', () => {
+    const r = walletByBucket([at('2026-11-04T01:00:00.000Z', 'deposit', '10'), at('2026-11-04T02:00:00.000Z', 'deposit', '5'), at('2026-11-04T03:00:00.000Z', 'withdraw', '7')], 'month', 'USDT', {});
+    expect(r).toEqual({ '2026-11': { deposits: '15', withdrawals: '7' } });
+  });
+  it('reports missing rates, unique and sorted', () => {
+    expect(walletByBucket([at('2026-11-04T01:00:00.000Z', 'deposit', '1', 'THB'), at('2026-11-04T01:00:00.000Z', 'deposit', '1', 'USD'), at('2026-11-05T01:00:00.000Z', 'withdraw', '1', 'THB')], 'day', 'USDT', {}))
+      .toEqual({ missingRates: ['THB', 'USD'] });
+  });
+  it('converts mixed currencies with a rate', () => {
+    const r = walletByBucket([at('2026-11-04T01:00:00.000Z', 'deposit', '350', 'THB'), at('2026-11-04T02:00:00.000Z', 'deposit', '5')], 'day', 'USDT', { usdtThb: '35' });
+    expect(r).toEqual({ '2026-11-04': { deposits: '15', withdrawals: '0' } });
+  });
+  it('honours a custom timezone and empty input', () => {
+    expect(walletByBucket([at('2026-11-04T16:59:00.000Z', 'deposit', '1')], 'day', 'USDT', {}, 'UTC')).toEqual({ '2026-11-04': { deposits: '1', withdrawals: '0' } });
+    expect(walletByBucket([], 'day', 'USDT', {})).toEqual({});
   });
 });

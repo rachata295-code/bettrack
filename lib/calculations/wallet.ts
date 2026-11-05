@@ -2,6 +2,7 @@ import { CURRENCIES } from '@/types';
 import type { Currency, FxRates, Money, Session, Transaction } from '@/types';
 import { convert } from './fx';
 import { D, isPositive, parseMoneyInput } from './money';
+import { APP_TZ, periodKey, type PeriodUnit } from './periods';
 import { computeTimeline, currentBalance } from './timeline';
 
 export const MAX_NOTE_LEN = 200;
@@ -114,4 +115,33 @@ export function realPnl(input: {
     onPlatform: D(onPlatform).toString(),
     net: net.toString(),
   };
+}
+
+export type WalletBuckets = Record<string, { deposits: Money; withdrawals: Money }>;
+
+/** Deposits and withdrawals per period (fees excluded), converted to `currency`; Bangkok time by default. */
+export function walletByBucket(
+  transactions: readonly Transaction[],
+  unit: PeriodUnit,
+  currency: Currency,
+  fx: FxRates,
+  tz: string = APP_TZ,
+): WalletBuckets | { missingRates: Currency[] } {
+  const acc: Record<string, { deposits: ReturnType<typeof D>; withdrawals: ReturnType<typeof D> }> = {};
+  const missing: Currency[] = [];
+  for (const t of transactions) {
+    const amount = convert(t.amount, t.currency, currency, fx);
+    if (amount === null) {
+      missing.push(t.currency);
+      continue;
+    }
+    const key = periodKey(t.at, unit, tz);
+    const b = (acc[key] ??= { deposits: D('0'), withdrawals: D('0') });
+    if (t.type === 'deposit') b.deposits = b.deposits.plus(amount);
+    else b.withdrawals = b.withdrawals.plus(amount);
+  }
+  if (missing.length > 0) return { missingRates: sortedUnique(missing) };
+  const out: WalletBuckets = {};
+  for (const [k, v] of Object.entries(acc)) out[k] = { deposits: v.deposits.toString(), withdrawals: v.withdrawals.toString() };
+  return out;
 }

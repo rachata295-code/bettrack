@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { BalanceCard } from '@/components/dashboard/balance-card';
+import { RealPnlLinkCard } from '@/components/dashboard/real-pnl-link-card';
 import { PeriodSummary } from '@/components/dashboard/period-summary';
 import { BalanceChart } from '@/components/charts/balance-chart';
 import { GuardStatusCard } from '@/components/guard/guard-status-card';
@@ -70,6 +71,7 @@ export default function DashboardPage() {
         {!v.ok && <p className="text-sm text-loss">Bet is not valid for the current balance. Edit it in the Calculator.</p>}
       </section>
       <PeriodSummary sessions={sessions} currency={session.currency} precision={precision} />
+      <RealPnlLinkCard currency={session.currency} />
       <GuardStatusCard guard={guard} precision={precision} currency={session.currency} />
       <LimitDialog pending={pending} precision={precision} currency={session.currency} onConfirm={confirm} onCancel={cancel} />
       {timeline.length === 0 ? (

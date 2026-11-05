@@ -15,6 +15,7 @@
  * - Non-GET and cross-origin requests are not intercepted at all.
  *
  * Bump CACHE whenever this file's caching behaviour changes; activate deletes every other cache.
+ * Bump CACHE in public/sw.js to ship a refreshed offline shell and trigger the in-app update prompt.
  */
 
 const CACHE = 'bettrack-v1';
@@ -115,6 +116,8 @@ async function handleNavigate(event) {
     fetched.then(({ copy }) => (copy ? putInCache(request, copy) : undefined)).catch(() => undefined),
   );
   const network = fetched.then(({ response }) => response);
+  // Silences unhandled-rejection noise when the cached copy wins; failures still surface via the race below.
+  network.catch(() => {});
 
   const cache = await caches.open(CACHE);
   const cached =

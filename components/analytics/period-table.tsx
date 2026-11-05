@@ -10,6 +10,7 @@ import { formatPlayTime, formatSignedPercent, periodLabel, sortBuckets, type Buc
 import type { BucketSummary, PeriodUnit } from '@/lib/calculations/periods';
 import { downloadText } from '@/lib/io/download';
 import { summaryFilename } from '@/lib/io/filename';
+import type { WalletBuckets } from '@/lib/calculations/wallet';
 import { bucketsToCsv } from '@/lib/io/period-csv';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +31,16 @@ function tone(signedText: string): string {
   return signedText.startsWith('+') ? 'text-profit' : signedText.startsWith('−') ? 'text-loss' : '';
 }
 
-export function PeriodTable({ buckets, unit, precision }: { buckets: readonly BucketSummary[]; unit: PeriodUnit; precision: number }) {
+export function PeriodTable({
+  buckets, unit, precision, wallet = null, walletMissingRates = false,
+}: {
+  buckets: readonly BucketSummary[];
+  unit: PeriodUnit;
+  precision: number;
+  /** Deposits/withdrawals per bucket key (already converted in lib); null hides the columns. */
+  wallet?: WalletBuckets | null;
+  walletMissingRates?: boolean;
+}) {
   // Newest period first: that is what people look for after a session.
   const [sort, setSort] = useState<{ key: BucketSortKey; dir: 'asc' | 'desc' }>({ key: 'period', dir: 'desc' });
   const sorted = useMemo(() => sortBuckets(buckets, sort.key, sort.dir), [buckets, sort]);
@@ -41,7 +51,7 @@ export function PeriodTable({ buckets, unit, precision }: { buckets: readonly Bu
   const exportCsv = () => {
     try {
       // Export keeps chronological order (not the on-screen sort) so the file is ready to chart.
-      downloadText(summaryFilename(unit), bucketsToCsv(buckets, unit), 'text/csv;charset=utf-8');
+      downloadText(summaryFilename(unit), bucketsToCsv(buckets, unit, wallet ?? undefined), 'text/csv;charset=utf-8');
     } catch {
       toast.error('Export failed');
     }
@@ -55,6 +65,9 @@ export function PeriodTable({ buckets, unit, precision }: { buckets: readonly Bu
           <Download /> Export CSV
         </Button>
       </div>
+      {walletMissingRates && (
+        <p className="text-xs text-muted-foreground">Wallet totals hidden: set a USDT/THB rate in Settings</p>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
@@ -77,6 +90,12 @@ export function PeriodTable({ buckets, unit, precision }: { buckets: readonly Bu
                 </TableHead>
               );
             })}
+            {wallet && (
+              <>
+                <TableHead className="text-right whitespace-nowrap">Deposits</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Withdrawals</TableHead>
+              </>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -95,6 +114,12 @@ export function PeriodTable({ buckets, unit, precision }: { buckets: readonly Bu
                 <TableCell className="num text-right">{formatMoney(b.maxDrawdown, { precision })}</TableCell>
                 <TableCell className="num text-right">{b.chasing}</TableCell>
                 <TableCell className="num text-right whitespace-nowrap">{formatPlayTime(b.playMinutes)}</TableCell>
+                {wallet && (
+                  <>
+                    <TableCell className="num text-right">{formatMoney(wallet[b.key]?.deposits ?? '0', { precision })}</TableCell>
+                    <TableCell className="num text-right">{formatMoney(wallet[b.key]?.withdrawals ?? '0', { precision })}</TableCell>
+                  </>
+                )}
               </TableRow>
             );
           })}
