@@ -1,7 +1,7 @@
 // Monte Carlo engine. The ONE place in lib/ allowed to use float `number` for money:
 // 10^8 Decimal operations are too slow, and the result is a statistical estimate anyway.
 // Inputs come from validated decimal strings; callers must format outputs via formatMoney.
-import { parseMoneyInput } from './money';
+import { D, parseMoneyInput } from './money';
 import { parseProbability } from './risk';
 
 export type SimBet =
@@ -154,30 +154,59 @@ function parseInt01(raw: string | undefined, min: number, max: number): number |
   return n >= min && n <= max ? n : null;
 }
 
+// Upper bounds keep float math finite: balance × multiplier over many rounds must not reach Infinity/NaN.
+export const MAX_SIM_MULTIPLIER = 1000;
+export const MAX_SIM_START = 1e12;
+
+/**
+ * A bet must be a whole number of precision units. Smaller (or finer) bets get rounded away by the
+ * engine's per-round rounding, so losses would cost nothing and ruin would read 0% (silently wrong).
+ */
+function betUnitError(raw: string | undefined, precision: number | null): string | null {
+  if (precision === null) return null;
+  const m = parseMoneyInput(raw ?? '');
+  if (!m.ok) return null;
+  const unit = D('10').pow(-precision);
+  if (D(m.value).lt(unit)) return `Must be at least ${unit.toFixed(precision)} at ${precision} decimals`;
+  if (D(m.value).decimalPlaces() > precision) return `Use at most ${precision} decimals`;
+  return null;
+}
+
 export function validateSimInput(
   raw: Record<string, string>,
 ): { ok: true; value: SimInput } | { ok: false; errors: Record<string, string> } {
   const errors: Record<string, string> = {};
+
+  // Precision first: bet validation depends on it.
+  const precisionRaw = (raw.precision ?? '').trim();
+  const precision = precisionRaw === '' ? 2 : parseInt01(precisionRaw, 0, 8);
+  if (precision === null) errors.precision = 'Precision must be a whole number from 0 to 8';
 
   const pp = parseProbability(raw.p ?? '');
   if (!pp.ok) errors.p = 'Enter a win probability between 0 and 100 (exclusive)';
 
   const multiplier = parseNum(raw.multiplier);
   if (multiplier === null || multiplier <= 1) errors.multiplier = 'Multiplier must be greater than 1';
+  else if (multiplier > MAX_SIM_MULTIPLIER) errors.multiplier = 'Multiplier must be 1,000 or less';
 
   const start = parseNum(raw.start);
   if (start === null || start <= 0) errors.start = 'Starting balance must be greater than 0';
+  else if (start > MAX_SIM_START) errors.start = 'Starting balance must be 1,000,000,000,000 or less';
 
   let bet: SimBet | null = null;
   if (raw.betMode === 'fixed') {
     const amount = parseNum(raw.bet);
+    const unitErr = betUnitError(raw.bet, precision);
     if (amount === null || amount <= 0) errors.bet = 'Bet must be greater than 0';
+    else if (unitErr) errors.bet = unitErr;
     else bet = { mode: 'fixed', amount };
   } else if (raw.betMode === 'percent') {
     const percent = parseNum(raw.percent);
     const minBet = parseNum(raw.minBet);
     if (percent === null || percent <= 0 || percent > 100) errors.percent = 'Percent must be between 0 and 100';
+    const unitErr = betUnitError(raw.minBet, precision);
     if (minBet === null || minBet <= 0) errors.minBet = 'Minimum bet must be greater than 0';
+    else if (unitErr) errors.minBet = unitErr;
     if (percent !== null && minBet !== null && !errors.percent && !errors.minBet) {
       bet = { mode: 'percent', percent, minBet };
     }
@@ -191,10 +220,6 @@ export function validateSimInput(
   if (runs === null) errors.runs = 'Runs must be a whole number from 1 to 10,000';
   const seed = parseInt01(raw.seed, 0, 4294967295);
   if (seed === null) errors.seed = 'Seed must be a whole number from 0 to 4,294,967,295';
-  const precisionRaw = (raw.precision ?? '').trim();
-  const precision = precisionRaw === '' ? 2 : parseInt01(precisionRaw, 0, 8);
-  if (precision === null) errors.precision = 'Precision must be a whole number from 0 to 8';
-
   if (
     Object.keys(errors).length > 0 ||
     !pp.ok ||

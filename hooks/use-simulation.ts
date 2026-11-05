@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SimInput, SimResult } from '@/lib/calculations/montecarlo';
 import type { WorkerOut } from '@/lib/workers/montecarlo.worker';
+import type { Currency } from '@/types';
 
 export type SimStatus = 'idle' | 'running' | 'done' | 'cancelled' | 'error';
 
@@ -15,8 +16,14 @@ export function randomSeed(): number {
   return buf[0] as number;
 }
 
+/** Display settings captured when a run starts, so a later session/precision change can't relabel old results. */
+export interface SimDisplay {
+  currency: Currency;
+  precision: number;
+}
+
 export interface UseSimulation {
-  run: (input: SimInput) => void;
+  run: (input: SimInput, currency: Currency) => void;
   cancel: () => void;
   status: SimStatus;
   /** 0..1 */
@@ -24,6 +31,8 @@ export interface UseSimulation {
   result: SimResult | null;
   /** The input the current/last result was computed from. */
   input: SimInput | null;
+  /** Currency + precision snapshotted at run time; use these (not live settings) to show the result. */
+  display: SimDisplay | null;
   error: string | null;
 }
 
@@ -39,6 +48,7 @@ export function useSimulation(): UseSimulation {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<SimResult | null>(null);
   const [input, setInput] = useState<SimInput | null>(null);
+  const [display, setDisplay] = useState<SimDisplay | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const teardown = useCallback(() => {
@@ -59,12 +69,13 @@ export function useSimulation(): UseSimulation {
     setStatus('error');
   }, [teardown]);
 
-  const run = useCallback((next: SimInput) => {
+  const run = useCallback((next: SimInput, currency: Currency) => {
     teardown();
     setResult(null);
     setError(null);
     setProgress(0);
     setInput(next);
+    setDisplay({ currency, precision: next.precision });
     if (typeof Worker === 'undefined') {
       fail(NO_WORKER_MESSAGE);
       return;
@@ -107,5 +118,5 @@ export function useSimulation(): UseSimulation {
     setStatus(s => (s === 'running' ? 'cancelled' : s));
   }, [teardown]);
 
-  return { run, cancel, status, progress, result, input, error };
+  return { run, cancel, status, progress, result, input, display, error };
 }

@@ -44,7 +44,8 @@ export function SimForm({ defaults, currency, precision, running, onRun, onCance
   const [betMode, setBetMode] = useState<'fixed' | 'percent'>('fixed');
   const [bet, setBet] = useState(defaults.bet);
   const [percent, setPercent] = useState('10');
-  const [minBet, setMinBet] = useState('0.1');
+  // Smallest default that is still a whole precision unit (0.1 is invalid at 0 decimals).
+  const [minBet, setMinBet] = useState(precision === 0 ? '1' : '0.1');
   const [rounds, setRounds] = useState('100');
   const [runs, setRuns] = useState('10000');
   const [seed, setSeed] = useState(() => String(randomSeed()));

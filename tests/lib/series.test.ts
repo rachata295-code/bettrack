@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bandSeries, bucketSeries, balanceSeries, simMoney, simPercent } from '@/lib/calculations/series';
+import { bandSeries, bucketSeries, balanceSeries, simAssumptions, simMoney, simPercent } from '@/lib/calculations/series';
 import { computeTimeline } from '@/lib/calculations/timeline';
 import type { BucketSummary } from '@/lib/calculations/periods';
 import type { Round } from '@/types';
@@ -71,5 +71,18 @@ describe('bandSeries / simMoney / simPercent', () => {
     expect(simPercent(1)).toBe('100.0%');
     expect(simPercent(0.12345)).toBe('12.3%');
     expect(simPercent(0)).toBe('0.0%');
+  });
+  it('simPercent never shows a tiny non-zero probability as 0.0%', () => {
+    expect(simPercent(0.0001)).toBe('<0.1%');
+    expect(simPercent(0.0004999)).toBe('<0.1%');
+    expect(simPercent(0.0005)).toBe('0.1%');
+    expect(simPercent(0.99999)).toBe('>99.9%');
+  });
+});
+
+describe('simAssumptions', () => {
+  it('states the assumed inputs, never as a prediction', () => {
+    const input = { p: 0.4877, multiplier: 2.03, start: 10, bet: { mode: 'fixed', amount: 4 }, rounds: 100, runs: 10000, seed: 42, precision: 2 } as const;
+    expect(simAssumptions(input)).toBe('Assumed win chance 48.77% · ×2.03 · 100 rounds × 10,000 runs · seed 42');
   });
 });

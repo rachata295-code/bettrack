@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { BandChart } from './band-chart';
 import type { SimInput, SimResult } from '@/lib/calculations/montecarlo';
-import { bandSeries, simMoney, simPercent } from '@/lib/calculations/series';
+import { bandSeries, simAssumptions, simMoney, simPercent } from '@/lib/calculations/series';
 import type { Currency } from '@/types';
 
 interface SimResultsProps {
@@ -29,6 +29,7 @@ export function SimResults({ result, input, currency, precision }: SimResultsPro
   return (
     <section aria-label="Simulation results" className="space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
       <h2 className="text-lg font-semibold">Results</h2>
+      <p className="num text-xs text-muted-foreground" data-testid="sim-assumptions">{simAssumptions(input)}</p>
       {/* Neutral colours on purpose: every figure depends on the user's assumed p. */}
       <div className="grid gap-2 sm:grid-cols-2" aria-live="polite">
         <Stat label="Risk of ruin (could not afford the next bet)" value={simPercent(result.ruinProb)} />

@@ -31,7 +31,7 @@ export default function SimulatorPage() {
         precision={precision}
         running={running}
         progress={sim.progress}
-        onRun={sim.run}
+        onRun={input => sim.run(input, session.currency)}
         onCancel={sim.cancel}
       />
 
@@ -41,8 +41,9 @@ export default function SimulatorPage() {
       {sim.status === 'error' && (
         <p role="alert" className="text-sm text-loss">{sim.error}</p>
       )}
-      {sim.status === 'done' && sim.result && sim.input && (
-        <SimResults result={sim.result} input={sim.input} currency={session.currency} precision={precision} />
+      {sim.status === 'done' && sim.result && sim.input && sim.display && (
+        // Snapshotted currency/precision: switching session after a run must not relabel its figures.
+        <SimResults result={sim.result} input={sim.input} currency={sim.display.currency} precision={sim.display.precision} />
       )}
     </div>
   );

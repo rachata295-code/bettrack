@@ -117,6 +117,39 @@ describe('validateSimInput', () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(Object.keys(r.errors).sort()).toEqual(['minBet', 'percent']);
   });
+  it('rejects bets below one precision unit (precision-0 ruin reproduction)', () => {
+    // Before the fix: minBet 0.1 at 0 decimals rounded every loss back to the same balance → ruin 0%.
+    const r = validateSimInput({ ...okRaw, betMode: 'percent', percent: '10', minBet: '0.1', start: '10', precision: '0' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.minBet).toBe('Must be at least 1 at 0 decimals');
+    const f = validateSimInput({ ...okRaw, bet: '0.4', start: '10', precision: '0' });
+    expect(f.ok).toBe(false);
+    if (!f.ok) expect(f.errors.bet).toBe('Must be at least 1 at 0 decimals');
+    const t = validateSimInput({ ...okRaw, bet: '0.001', precision: '2' });
+    expect(t.ok).toBe(false);
+    if (!t.ok) expect(t.errors.bet).toBe('Must be at least 0.01 at 2 decimals');
+  });
+  it('rejects bets with more decimals than precision', () => {
+    const r = validateSimInput({ ...okRaw, bet: '1.5', start: '10', precision: '0' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.bet).toBe('Use at most 0 decimals');
+    const m = validateSimInput({ ...okRaw, betMode: 'percent', percent: '10', minBet: '0.125', precision: '2' });
+    expect(m.ok).toBe(false);
+    if (!m.ok) expect(m.errors.minBet).toBe('Use at most 2 decimals');
+    // Trailing zeros are fine.
+    expect(validateSimInput({ ...okRaw, bet: '1.00', start: '10', precision: '0' }).ok).toBe(true);
+  });
+  it('a valid precision-0 config ruins as expected', () => {
+    const r = validateSimInput({ ...okRaw, p: '0.0001', multiplier: '2', betMode: 'percent', percent: '10', minBet: '1', start: '10', rounds: '200', runs: '50', precision: '0' });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(simulate(r.value)?.ruinProb).toBe(1);
+  });
+  it('rejects multiplier above 1000 and start above 1e12', () => {
+    const r = validateSimInput({ ...okRaw, multiplier: '1000.01', start: '1000000000001' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(Object.keys(r.errors).sort()).toEqual(['multiplier', 'start']);
+    expect(validateSimInput({ ...okRaw, multiplier: '1000', start: '1000000000000' }).ok).toBe(true);
+  });
   it('rejects seed above 2^32-1', () => {
     expect(validateSimInput({ ...okRaw, seed: '4294967296' }).ok).toBe(false);
     expect(validateSimInput({ ...okRaw, seed: '4294967295' }).ok).toBe(true);
