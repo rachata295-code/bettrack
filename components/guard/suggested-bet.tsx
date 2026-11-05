@@ -23,7 +23,7 @@ export function SuggestedBet({
   // Capped means the only "suggestion" left would be the whole balance — never offer an all-in as advice.
   if (suggestion.reason === 'capped') {
     return (
-      <p className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted-foreground">
+      <p className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-muted-foreground">
         <Info className="size-4 shrink-0" aria-hidden />
         Balance is below your minimum bet.
       </p>
@@ -35,10 +35,11 @@ export function SuggestedBet({
       ? `minimum bet — ${formatPercent(suggestion.pctOfBalance, 0)} of balance`
       : `${percent}% of balance`;
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm">
+    // Compact single row (text-xs) so it never pushes WIN/LOSE below the fold on a phone.
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-surface py-1 pr-1 pl-3 text-xs">
       <p className="flex min-w-0 items-center gap-2 text-muted-foreground">
-        <Lightbulb className="size-4 shrink-0" aria-hidden />
-        <span>
+        <Lightbulb className="size-3.5 shrink-0" aria-hidden />
+        <span className="min-w-0">
           Suggested <span className="num font-medium text-foreground">{formatMoney(suggestion.amount, { precision })}</span>{' '}
           {currency} ({basis})
         </span>

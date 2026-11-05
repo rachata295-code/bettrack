@@ -87,7 +87,8 @@ function Calculator() {
         </div>
       </div>
       {/* Buttons sit right under the inputs on phones so recording never needs a scroll; desktop keeps preview first. */}
-      <div className="flex flex-col gap-5">
+      {/* Tighter gaps on phones keep WIN/LOSE in the first viewport even with suggestion, badge and streak notice. */}
+      <div className="flex flex-col gap-3 lg:gap-5">
         <BetForm
           bet={bet}
           multiplier={multiplier}
