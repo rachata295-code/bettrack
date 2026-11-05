@@ -115,7 +115,7 @@ function TransactionForm({ transaction, onDone }: { transaction?: Transaction; o
       <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="tx-amount">Amount</Label>
-          <Input id="tx-amount" inputMode="decimal" autoComplete="off" value={amount} onChange={e => setAmount(e.target.value)} aria-invalid={!!err('amount')} aria-describedby={err('amount') ? 'tx-amount-err' : undefined} />
+          <Input id="tx-amount" inputMode="decimal" autoComplete="off" value={amount} onChange={e => setAmount(e.target.value)} aria-invalid={!!err('amount')} aria-describedby={err('amount') ? 'tx-amount-hint tx-amount-err' : 'tx-amount-hint'} />
           {fieldErr('amount')}
         </div>
         <div className="space-y-1.5">
@@ -127,11 +127,18 @@ function TransactionForm({ transaction, onDone }: { transaction?: Transaction; o
           {fieldErr('currency')}
         </div>
       </div>
+      {/* Amount vs fee is easy to double-count; spell it out (EN + TH) so Real P&L is not skewed. */}
+      <p id="tx-amount-hint" className="-mt-2 text-xs text-muted-foreground">
+        Amount = what actually arrived on / left the platform. · ยอดที่เข้า/ออกจากแพลตฟอร์มจริง
+      </p>
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-3 min-[420px]:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="tx-fee">Fee ({currency})</Label>
-          <Input id="tx-fee" inputMode="decimal" autoComplete="off" value={fee} onChange={e => setFee(e.target.value)} aria-invalid={!!err('fee')} aria-describedby={err('fee') ? 'tx-fee-err' : undefined} />
+          <Input id="tx-fee" inputMode="decimal" autoComplete="off" value={fee} onChange={e => setFee(e.target.value)} aria-invalid={!!err('fee')} aria-describedby={err('fee') ? 'tx-fee-hint tx-fee-err' : 'tx-fee-hint'} />
+          <p id="tx-fee-hint" className="text-xs text-muted-foreground">
+            Extra cost paid on top, not already taken out of Amount. · ค่าธรรมเนียมที่จ่ายเพิ่ม (ไม่ได้หักจากยอดแล้ว)
+          </p>
           {fieldErr('fee')}
         </div>
         <div className="space-y-1.5">
