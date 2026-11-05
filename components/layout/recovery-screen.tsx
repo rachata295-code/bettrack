@@ -63,7 +63,7 @@ export function RecoveryScreen({ issues }: { issues: LoadIssue[] }) {
       <ul className="flex flex-col gap-2">
         {corrupt.map(issue => (
           <li key={issue.key} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-3">
-            <code className="num truncate text-xs">{issue.key}</code>
+            <span className="flex min-w-0 flex-col"><span className="text-sm font-medium">{shortName(issue.key)}</span><code className="num truncate text-xs text-muted-foreground">{issue.key}</code></span>
             <Button
               variant="outline"
               onClick={() => downloadText(`bettrack-raw-${shortName(issue.key)}.json`, issue.raw, 'application/json')}

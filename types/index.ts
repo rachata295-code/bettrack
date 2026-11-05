@@ -33,7 +33,22 @@ export interface Session {
 export interface Settings {
   precision: number; // 0-8, default 2
   guard?: GuardSettings;
+  fx?: FxRates;
+  fees?: FeeSettings;
+  realityCheck?: RealityCheckSettings;
 }
+
+// Manual exchange rates (THB per 1 unit); entered by the user, never fetched.
+export type FxRates = { usdtThb?: Money; usdThb?: Money };
+
+export type FeeSettings = {
+  cryptoWithdrawFee: Money; // in the withdrawn currency
+  tradeFeePct: string; // exchange trading fee, 0 <= x < 100
+  spreadPct: string; // 0 <= x < 100
+  thbWithdrawFee: Money; // in THB
+};
+
+export type RealityCheckSettings = { enabled: boolean; intervalMin: number };
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
@@ -49,4 +64,16 @@ export interface GuardSettings {
   lossStreak: { enabled: boolean; n: number; mode: 'soft' | 'hard'; cooldownMin: number };
   dailyLossLimit?: Money; // all sessions of one currency, Bangkok day
   chasingAlert: boolean;
+}
+
+// Real money moved between the user's bank/wallet and the platform (PLAN.md §3.1).
+export type TransactionType = 'deposit' | 'withdraw';
+export interface Transaction {
+  id: string;
+  type: TransactionType;
+  amount: Money; // > 0, in `currency`
+  currency: Currency;
+  fee: Money; // >= 0, in `currency`
+  at: string; // ISO 8601
+  note?: string;
 }

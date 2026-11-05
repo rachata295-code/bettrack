@@ -43,7 +43,7 @@ it('setGuard applies a valid patch and persists', async () => {
   expect(useSettingsStore.getState().setGuard({ sizing: { percent: '5' }, dailyLossLimit: '20' })).toEqual({ ok: true });
   expect(useSettingsStore.getState().guard.sizing.percent).toBe('5');
   const stored = JSON.parse(localStorage.getItem(SETTINGS)!);
-  expect(stored.version).toBe(2);
+  expect(stored.version).toBe(3);
   useSettingsStore.setState({ guard: DEFAULT_GUARD });
   localStorage.setItem(SETTINGS, JSON.stringify(stored));
   await useSettingsStore.persist.rehydrate();

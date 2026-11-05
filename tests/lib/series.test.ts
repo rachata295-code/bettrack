@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bucketSeries, balanceSeries } from '@/lib/calculations/series';
+import { bandSeries, bucketSeries, balanceSeries, simAssumptions, simMoney, simPercent } from '@/lib/calculations/series';
 import { computeTimeline } from '@/lib/calculations/timeline';
 import type { BucketSummary } from '@/lib/calculations/periods';
 import type { Round } from '@/types';
@@ -43,5 +43,46 @@ describe('bucketSeries display text', () => {
     const s = bucketSeries(b, 2);
     expect(s.map(x => x.pnlText)).toEqual(['+4.12', '−5.00', '+0.89']);
     expect(s.map(x => x.cumulativeText)).toEqual(['+4.12', '−0.88', '+0.01']);
+  });
+});
+
+describe('bandSeries / simMoney / simPercent', () => {
+  const result = {
+    ruinProb: 0, medianFinal: 0, probAboveStart: 0, meanFinal: 0,
+    bands: [
+      { round: 0, p10: 100, p50: 100, p90: 100 },
+      { round: 50, p10: 61.5, p50: 99.999999, p90: 1234.5 },
+    ],
+  };
+  it('maps bands to numbers plus display text', () => {
+    const s = bandSeries(result, 2);
+    expect(s[1]).toEqual({
+      round: 50, p10: 61.5, p50: 99.999999, p90: 1234.5, range: [61.5, 1234.5],
+      p10Text: '61.50', p50Text: '100.00', p90Text: '1,234.50',
+    });
+    expect(s[0]!.p50Text).toBe('100.00');
+  });
+  it('simMoney formats floats via toFixed(8) then formatMoney', () => {
+    expect(simMoney(0.1 + 0.2, 2)).toBe('0.30');
+    expect(simMoney(-1234.567, 1)).toBe('-1,234.6');
+    expect(simMoney(5, 2, 'USDT')).toBe('5.00 USDT');
+  });
+  it('simPercent formats a 0..1 probability with 1 dp', () => {
+    expect(simPercent(1)).toBe('100.0%');
+    expect(simPercent(0.12345)).toBe('12.3%');
+    expect(simPercent(0)).toBe('0.0%');
+  });
+  it('simPercent never shows a tiny non-zero probability as 0.0%', () => {
+    expect(simPercent(0.0001)).toBe('<0.1%');
+    expect(simPercent(0.0004999)).toBe('<0.1%');
+    expect(simPercent(0.0005)).toBe('0.1%');
+    expect(simPercent(0.99999)).toBe('>99.9%');
+  });
+});
+
+describe('simAssumptions', () => {
+  it('states the assumed inputs, never as a prediction', () => {
+    const input = { p: 0.4877, multiplier: 2.03, start: 10, bet: { mode: 'fixed', amount: 4 }, rounds: 100, runs: 10000, seed: 42, precision: 2 } as const;
+    expect(simAssumptions(input)).toBe('Assumed win chance 48.77% · ×2.03 · 100 rounds × 10,000 runs · seed 42');
   });
 });

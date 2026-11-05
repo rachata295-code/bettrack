@@ -1,12 +1,14 @@
 import { useBetStore } from './bet-store';
 import { useSettingsStore } from './settings-store';
-import { BETS_KEY, SETTINGS_KEY, hasUnsavedWrite } from './storage';
+import { useWalletStore } from './wallet-store';
+import { BETS_KEY, SETTINGS_KEY, WALLET_KEY, hasUnsavedWrite } from './storage';
 
 const KEY_PREFIX = 'bettrack:v1:';
 
 const stores = [
   { key: BETS_KEY, persist: () => useBetStore.persist },
   { key: SETTINGS_KEY, persist: () => useSettingsStore.persist },
+  { key: WALLET_KEY, persist: () => useWalletStore.persist },
 ];
 
 function rehydrate(key?: string): void {

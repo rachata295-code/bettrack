@@ -15,11 +15,14 @@ export function BalanceCard({
   currency,
   precision,
   hasInsufficient,
+  approxThb,
 }: {
   stats: SessionStats;
   currency: Currency;
   precision: number;
   hasInsufficient: boolean;
+  /** Pre-formatted "≈ X THB" (computed in lib); null/undefined hides the line. */
+  approxThb?: string | null;
 }) {
   const money = (v: string) => formatMoney(v, { precision, currency });
   // Sign is always rendered with +/− so meaning never depends on colour alone.
@@ -32,6 +35,7 @@ export function BalanceCard({
         <p className="num text-4xl font-semibold sm:text-5xl" data-testid="current-balance">
           {money(stats.current)}
         </p>
+        {approxThb && <p className="num text-sm text-muted-foreground" data-testid="balance-approx-thb">{approxThb}</p>}
       </div>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-5">
         <Item label="Initial" value={money(stats.initial)} />

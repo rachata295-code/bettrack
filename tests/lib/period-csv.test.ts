@@ -28,6 +28,13 @@ describe('bucketsToCsv', () => {
     const csv = bucketsToCsv([bucket({ key: 'a "b", c' })], 'week');
     expect(csv).toContain('\r\n"a ""b"", c",');
   });
+  it('appends Deposits,Withdrawals at the end only when wallet totals are given', () => {
+    const csv = bucketsToCsv([bucket(), bucket({ key: '2026-11-05' })], 'day', { '2026-11-04': { deposits: '10.5', withdrawals: '3' } });
+    const lines = csv.slice(1).split('\r\n');
+    expect(lines[0]).toBe('Period,Rounds,Wins,Losses,WinRatePct,Wagered,Payouts,PnL,ROIPct,MaxDrawdown,Chasing,PlayMinutes,Deposits,Withdrawals');
+    expect(lines[1]!.endsWith(',65,10.5,3')).toBe(true);
+    expect(lines[2]!.endsWith(',65,0,0')).toBe(true);
+  });
   it('header only for no buckets', () => {
     expect(bucketsToCsv([], 'month').slice(1).trim().split('\r\n')).toHaveLength(1);
   });

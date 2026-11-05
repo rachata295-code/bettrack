@@ -1,9 +1,12 @@
 import type { StateStorage } from 'zustand/middleware';
 import { DEFAULT_GUARD, parseGuardSettings } from '@/lib/calculations/guard';
-import { StoredSessionSchema } from '@/lib/io/backup';
+import { sanitizeFees, sanitizeFx } from '@/lib/calculations/fx';
+import { sanitizeRealityCheck } from '@/lib/calculations/reality-check';
+import { StoredSessionSchema, StoredTransactionSchema } from '@/lib/io/backup';
 
 export const BETS_KEY = 'bettrack:v1:bets';
 export const SETTINGS_KEY = 'bettrack:v1:settings';
+export const WALLET_KEY = 'bettrack:v1:wallet';
 
 export interface LoadIssue {
   key: string;
@@ -84,12 +87,27 @@ function validate(name: string, raw: string): string | null {
     if (!r.success) return null;
     return JSON.stringify({ ...(parsed as object), state: { ...state, sessions: r.data } });
   }
+  if (name === WALLET_KEY) {
+    // Money records: invalid data must trigger recovery, never be silently replaced by defaults.
+    const r = StoredTransactionSchema.array().safeParse(state.transactions);
+    if (!r.success) return null;
+    return JSON.stringify({ ...(parsed as object), state: { ...state, transactions: r.data } });
+  }
   if (name === SETTINGS_KEY) {
     // Bad precision or guard is harmless: fall back to defaults rather than blocking the app.
     // A missing guard (v1 data) is left for the store's migrate to fill in.
     const precision = isValidPrecision(state.precision) ? state.precision : 2;
     const guard = state.guard === undefined ? undefined : (parseGuardSettings(state.guard) ?? DEFAULT_GUARD);
-    const next = { ...state, precision, ...(guard !== undefined ? { guard } : {}) };
+    // Same for fx/fees/realityCheck: missing (older version) is left for migrate, invalid becomes defaults.
+    const opt = (k: string, f: (v: unknown) => unknown) => (state[k] === undefined ? {} : { [k]: f(state[k]) });
+    const next = {
+      ...state,
+      precision,
+      ...(guard !== undefined ? { guard } : {}),
+      ...opt('fx', sanitizeFx),
+      ...opt('fees', sanitizeFees),
+      ...opt('realityCheck', sanitizeRealityCheck),
+    };
     return JSON.stringify({ ...(parsed as object), state: next });
   }
   return raw;

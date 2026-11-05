@@ -8,7 +8,7 @@ import { PeriodTable } from '@/components/analytics/period-table';
 import { CalendarHeatmap } from '@/components/charts/calendar-heatmap';
 import { PnlBarChart } from '@/components/charts/pnl-bar-chart';
 import { useActiveSession } from '@/hooks/use-active-session';
-import { useAnalytics, type AnalyticsRange } from '@/hooks/use-analytics';
+import { useAnalytics, useWalletColumns, type AnalyticsRange } from '@/hooks/use-analytics';
 import { useBangkokDayKey } from '@/hooks/use-bangkok-day-key';
 import { type RowFilter } from '@/lib/calculations/periods';
 import { bucketSeries } from '@/lib/calculations/series';
@@ -61,6 +61,7 @@ export function PeriodTab() {
   );
 
   const { allRows, rows, buckets, dayBuckets, compare } = useAnalytics(filter, range, state.unit);
+  const wallet = useWalletColumns(buckets, state.unit, currency);
   const series = useMemo(() => bucketSeries(buckets, precision), [buckets, precision]);
 
   return (
@@ -88,7 +89,7 @@ export function PeriodTab() {
             </section>
           )}
           <CalendarHeatmap month={month} onMonthChange={setMonth} dayBuckets={dayBuckets} currency={currency} precision={precision} onSelectDay={setDay} />
-          {rows.length > 0 && <PeriodTable buckets={buckets} unit={state.unit} precision={precision} />}
+          {rows.length > 0 && <PeriodTable buckets={buckets} unit={state.unit} precision={precision} currency={currency} wallet={wallet.totals} walletMissingRates={wallet.missingRates} />}
           <DaySheet day={day} onClose={() => setDay(null)} rows={allRows} currency={currency} precision={precision} />
         </>
       )}

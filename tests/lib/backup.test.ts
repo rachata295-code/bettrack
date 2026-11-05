@@ -43,6 +43,23 @@ describe('backup', () => {
       expect(parseBackup(JSON.stringify({ ...createBackup([session]), sessions: [{ ...session, guard }] })).ok).toBe(false);
     }
   });
+  it('round-trips settings.fx / fees / realityCheck and still parses older backups', () => {
+    const settings = {
+      precision: 2,
+      fx: { usdtThb: '35.5' },
+      fees: { cryptoWithdrawFee: '1', tradeFeePct: '0.1', spreadPct: '0.5', thbWithdrawFee: '20' },
+      realityCheck: { enabled: true, intervalMin: 30 },
+    };
+    const p = parseBackup(JSON.stringify(createBackup([], settings)));
+    expect(p.ok && p.backup.settings).toEqual(settings);
+  });
+
+  it('rejects invalid settings.fx / fees', () => {
+    const mk = (settings: object) => JSON.stringify({ ...createBackup([]), settings });
+    expect(parseBackup(mk({ precision: 2, fx: { usdtThb: '-1' } })).ok).toBe(false);
+    expect(parseBackup(mk({ precision: 2, fees: { tradeFeePct: '5' } })).ok).toBe(false);
+  });
+
   it('rejects invalid settings.guard', () => {
     const b = createBackup([session], { precision: 2, guard: { ...DEFAULT_GUARD, sizing: { mode: 'percent', percent: '0', minBet: '1' } } });
     expect(parseBackup(JSON.stringify(b)).ok).toBe(false);

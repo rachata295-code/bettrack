@@ -20,6 +20,13 @@ type SessionInput = Partial<
   guard?: SessionGuardLimits | null;
 };
 
+/** Which reminder the user already answered: same session + day, up to this interval index. */
+export interface RealityAck {
+  sessionId: string;
+  day: string;
+  index: number;
+}
+
 export type RecordResult = { ok: true; round: Round } | { ok: false; errors: BetInputError[] | ['duplicate'] };
 export type UndoResult =
   | { ok: true; sessionId: string; round: Round; index: number }
@@ -46,6 +53,8 @@ interface BetState {
   cooldownUntil: number | null;
   startCooldown: (minutes: number) => void;
   clearCooldown: () => void;
+  realityAck: RealityAck | null;
+  ackReality: (sessionId: string, day: string, index: number) => void;
   recordRound: (result: RoundResult, bet: string, multiplier: string) => RecordResult;
   undoLast: () => UndoResult;
   restoreRound: (sessionId: string, round: Round, index: number) => RestoreResult;
@@ -131,7 +140,7 @@ function normalizeSessionPatch(patch: SessionInput): SessionInput | null {
 
 const initialState = () => {
   const s = makeSession('Session 1');
-  return { sessions: [s], activeSessionId: s.id, lastRecordAt: 0, lastUndoAt: 0, drafts: {} as Record<string, Draft>, cooldownUntil: null as number | null };
+  return { sessions: [s], activeSessionId: s.id, lastRecordAt: 0, lastUndoAt: 0, drafts: {} as Record<string, Draft>, cooldownUntil: null as number | null, realityAck: null as RealityAck | null };
 };
 
 /** The Calculator/Dashboard inputs for a session: the saved draft, else the session defaults. */
@@ -139,6 +148,14 @@ export function getDraft(state: Pick<BetState, 'sessions' | 'drafts'>, sessionId
   const d = state.drafts[sessionId];
   const s = state.sessions.find(x => x.id === sessionId);
   return { bet: d?.bet ?? s?.defaultBet ?? '', multiplier: d?.multiplier ?? s?.defaultMultiplier ?? '' };
+}
+
+function sanitizeRealityAck(raw: unknown): RealityAck | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const a = raw as Record<string, unknown>;
+  return typeof a.sessionId === 'string' && typeof a.day === 'string' && typeof a.index === 'number' && Number.isInteger(a.index) && a.index >= 0
+    ? { sessionId: a.sessionId, day: a.day, index: a.index }
+    : null;
 }
 
 const isDraftField = (v: unknown): v is string => typeof v === 'string' && v.length <= MAX_DRAFT_LEN;
@@ -335,6 +352,7 @@ export const useBetStore = create<BetState>()(
           set({ cooldownUntil: Date.now() + minutes * 60_000 });
         },
         clearCooldown: () => set({ cooldownUntil: null }),
+        ackReality: (sessionId, day, index) => set({ realityAck: { sessionId, day, index } }),
       };
     },
     {
@@ -342,7 +360,7 @@ export const useBetStore = create<BetState>()(
       version: 1,
       storage: createJSONStorage(() => safeStorage),
       skipHydration: false,
-      partialize: s => ({ sessions: s.sessions, activeSessionId: s.activeSessionId, drafts: s.drafts, cooldownUntil: s.cooldownUntil }),
+      partialize: s => ({ sessions: s.sessions, activeSessionId: s.activeSessionId, drafts: s.drafts, cooldownUntil: s.cooldownUntil, realityAck: s.realityAck }),
       migrate: persisted => persisted as BetState,
       // Repair a dangling activeSessionId / empty list so the UI never sees an invalid state.
       merge: (persisted, current) => {
@@ -354,6 +372,7 @@ export const useBetStore = create<BetState>()(
         return { ...current, sessions: p.sessions, activeSessionId, drafts: sanitizeDrafts(p.drafts, p.sessions),
           // Lenient: a bad value just means no active break.
           cooldownUntil: typeof p.cooldownUntil === 'number' && Number.isFinite(p.cooldownUntil) ? p.cooldownUntil : null,
+          realityAck: sanitizeRealityAck(p.realityAck),
         };
       },
     },

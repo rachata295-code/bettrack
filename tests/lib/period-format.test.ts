@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareDeltas, formatPlayTime, periodLabel, formatSignedPercent, sortBuckets, timeInTz } from '@/lib/calculations/period-format';
+import { bangkokLocalToIso, isoToBangkokLocal, compareDeltas, formatPlayTime, periodLabel, formatSignedPercent, sortBuckets, timeInTz } from '@/lib/calculations/period-format';
 import type { BucketSummary } from '@/lib/calculations/periods';
 
 const b = (over: Partial<BucketSummary>): BucketSummary => ({
@@ -95,5 +95,23 @@ describe('periodLabel', () => {
   it('falls back to the raw key when it cannot be parsed', () => {
     expect(periodLabel('nope', 'week')).toBe('nope');
     expect(periodLabel('2026-13', 'month')).toBe('2026-13');
+  });
+});
+
+describe('bangkok local date-time helpers', () => {
+  it('converts Bangkok local time to ISO UTC', () => {
+    expect(bangkokLocalToIso('2026-11-05T00:30')).toBe('2026-11-04T17:30:00.000Z');
+    expect(bangkokLocalToIso('2026-11-05T12:00')).toBe('2026-11-05T05:00:00.000Z');
+  });
+  it('rejects malformed or impossible values', () => {
+    expect(bangkokLocalToIso('')).toBeNull();
+    expect(bangkokLocalToIso('2026-11-05')).toBeNull();
+    expect(bangkokLocalToIso('2026-02-31T10:00')).toBeNull();
+    expect(bangkokLocalToIso('2026-11-05T25:00')).toBeNull();
+    expect(bangkokLocalToIso('nope')).toBeNull();
+  });
+  it('round-trips back to the datetime-local value', () => {
+    expect(isoToBangkokLocal('2026-11-04T17:30:00.000Z')).toBe('2026-11-05T00:30');
+    expect(isoToBangkokLocal(bangkokLocalToIso('2026-12-31T23:59')!)).toBe('2026-12-31T23:59');
   });
 });

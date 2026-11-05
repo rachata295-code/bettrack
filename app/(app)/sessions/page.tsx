@@ -8,6 +8,7 @@ import { SessionFormDialog } from '@/components/sessions/session-form-dialog';
 import { SessionList } from '@/components/sessions/session-list';
 import { Button } from '@/components/ui/button';
 import { createBackup } from '@/lib/io/backup';
+import { useWalletStore } from '@/store/wallet-store';
 import { downloadText } from '@/lib/io/download';
 import { exportFilename } from '@/lib/io/filename';
 import { useBetStore } from '@/store/bet-store';
@@ -20,8 +21,8 @@ export default function SessionsPage() {
   const exportAll = () => {
     try {
       const { sessions } = useBetStore.getState();
-      const { precision, guard } = useSettingsStore.getState();
-      downloadText(exportFilename('backup', 'json'), JSON.stringify(createBackup(sessions, { precision, guard }), null, 2), 'application/json');
+      const { precision, guard, fx, fees, realityCheck } = useSettingsStore.getState();
+      downloadText(exportFilename('backup', 'json'), JSON.stringify(createBackup(sessions, { precision, guard, fx, fees, realityCheck }, useWalletStore.getState().transactions), null, 2), 'application/json');
     } catch {
       toast.error('Export failed');
     }
