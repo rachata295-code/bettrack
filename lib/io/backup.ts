@@ -15,15 +15,26 @@ const multiplier = decimalString.refine(s => D(s).gt(1), 'must be > 1');
 // Strict ISO 8601 with offset: lenient strings like "1" would parse but break period bucketing.
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/;
 const isoDate = z.string().regex(ISO_RE, 'invalid date').refine(s => !Number.isNaN(Date.parse(s)), 'invalid date');
+// Persisted-load only: M1 builds could store looser (but parseable) dates; reject them and an upgraded
+// user would land on the recovery screen. Accept anything Date.parse understands and normalise to ISO.
+const lenientDate = z
+  .string()
+  .refine(s => !Number.isNaN(Date.parse(s)), 'invalid date')
+  .transform(s => new Date(s).toISOString());
 
-export const RoundSchema = z.object({
-  id: z.string().min(1),
-  result: z.enum(['win', 'lose']),
-  bet: positive,
-  multiplier,
-  createdAt: isoDate,
-  note: z.string().optional(),
-});
+type DateSchema = typeof isoDate | typeof lenientDate;
+
+const roundSchema = (date: DateSchema) =>
+  z.object({
+    id: z.string().min(1),
+    result: z.enum(['win', 'lose']),
+    bet: positive,
+    multiplier,
+    createdAt: date,
+    note: z.string().optional(),
+  });
+
+export const RoundSchema = roundSchema(isoDate);
 
 const limitValue = z
   .object({ kind: z.enum(['amount', 'percent']), value: z.string() })
@@ -41,19 +52,25 @@ const guardSettings = z.unknown().transform((v, ctx) => {
 });
 
 // Default zod behaviour strips unknown keys, so export-only fields like currentBalance are ignored on import.
-export const SessionSchema = z.object({
-  id: z.string().min(1),
-  name: z.string(),
-  currency: z.enum(CURRENCIES as [Session['currency'], ...Session['currency'][]]),
-  initialBalance: nonNegative,
-  defaultBet: positive,
-  defaultMultiplier: multiplier,
-  rounds: z.array(RoundSchema),
-  tags: z.array(z.string()),
-  guard: sessionGuard.optional(),
-  createdAt: isoDate,
-  updatedAt: isoDate,
-});
+const sessionSchema = (date: DateSchema) =>
+  z.object({
+    id: z.string().min(1),
+    name: z.string(),
+    currency: z.enum(CURRENCIES as [Session['currency'], ...Session['currency'][]]),
+    initialBalance: nonNegative,
+    defaultBet: positive,
+    defaultMultiplier: multiplier,
+    rounds: z.array(roundSchema(date)),
+    tags: z.array(z.string()),
+    guard: sessionGuard.optional(),
+    createdAt: date,
+    updatedAt: date,
+  });
+
+/** Strict: file import (untrusted input) requires canonical ISO 8601 dates. */
+export const SessionSchema = sessionSchema(isoDate);
+/** Lenient dates, normalised to ISO: only for reading this app's own localStorage. */
+export const StoredSessionSchema = sessionSchema(lenientDate);
 
 export const BackupSchema = z.object({
   app: z.literal('bettrack'),

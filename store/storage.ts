@@ -1,6 +1,6 @@
 import type { StateStorage } from 'zustand/middleware';
 import { DEFAULT_GUARD, parseGuardSettings } from '@/lib/calculations/guard';
-import { SessionSchema } from '@/lib/io/backup';
+import { StoredSessionSchema } from '@/lib/io/backup';
 
 export const BETS_KEY = 'bettrack:v1:bets';
 export const SETTINGS_KEY = 'bettrack:v1:settings';
@@ -78,7 +78,11 @@ function validate(name: string, raw: string): string | null {
   const state = (parsed as { state?: Record<string, unknown> } | null)?.state;
   if (!state || typeof state !== 'object') return null;
   if (name === BETS_KEY) {
-    return SessionSchema.array().safeParse(state.sessions).success ? raw : null;
+    // Lenient dates here (strict only for file import): normalised sessions replace the stored ones,
+    // so an M1 user's loosely formatted dates upgrade silently instead of triggering recovery.
+    const r = StoredSessionSchema.array().safeParse(state.sessions);
+    if (!r.success) return null;
+    return JSON.stringify({ ...(parsed as object), state: { ...state, sessions: r.data } });
   }
   if (name === SETTINGS_KEY) {
     // Bad precision or guard is harmless: fall back to defaults rather than blocking the app.
